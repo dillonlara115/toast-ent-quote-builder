@@ -17,11 +17,11 @@ if (!defined('ABSPATH')) {
             <div class="step-number">1</div>
             <div class="step-label">Services</div>
         </div>
-        <div class="step-indicator" :class="{ 'active': currentStep === 2, 'completed': serviceProgress > 0 }">
+        <div class="step-indicator" :class="{ 'active': currentStep === 2, 'completed': serviceProgressCount > 0 }">
             <div class="step-number">2</div>
             <div class="step-label">Packages</div>
         </div>
-        <div class="step-indicator" :class="{ 'active': currentStep === 3, 'completed': serviceProgress > 0 && currentStep > 3 }">
+        <div class="step-indicator" :class="{ 'active': currentStep === 3, 'completed': serviceProgressCount > 0 && currentStep > 3 }">
             <div class="step-number">3</div>
             <div class="step-label">Add-ons</div>
         </div>

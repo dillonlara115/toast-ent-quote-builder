@@ -290,11 +290,13 @@
             currentServiceIndex: 0,
             serviceSelections: createInitialSelections(),
             serviceSummaries: {},
+            orderedServiceSummaries: [],
             subtotal: 0,
             discount: 0,
             discountLabel: '',
             finalTotal: 0,
             stepError: '',
+            serviceProgressCount: 0,
             editingService: false,
             isSubmitting: false,
             submitMessage: '',
@@ -373,6 +375,7 @@
                 const index = this.selectedServices.indexOf(serviceId);
                 if (index === -1) {
                     this.selectedServices.push(serviceId);
+                    this.recalculateTotals();
                 } else {
                     this.selectedServices.splice(index, 1);
                     delete this.serviceSummaries[serviceId];
@@ -716,6 +719,10 @@
                 this.subtotal = this.selectedServices.reduce((sum, serviceId) => {
                     return sum + (this.serviceSummaries[serviceId] ? this.serviceSummaries[serviceId].subtotal : 0);
                 }, 0);
+                this.serviceProgressCount = Object.keys(this.serviceSummaries).length;
+                this.orderedServiceSummaries = this.selectedServices
+                    .map((id) => this.serviceSummaries[id])
+                    .filter(Boolean);
                 this.calculateDiscount();
                 this.finalTotal = Math.max(this.subtotal - this.discount, 0);
             },
@@ -771,12 +778,14 @@
                 this.currentServiceIndex = 0;
                 this.serviceSelections = createInitialSelections();
                 this.serviceSummaries = {};
+                this.orderedServiceSummaries = [];
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
                 this.finalTotal = 0;
                 this.stepError = '';
                 this.editingService = false;
+                this.serviceProgressCount = 0;
                 this.isSubmitting = false;
                 this.submitMessage = '';
                 this.submitSuccess = false;
