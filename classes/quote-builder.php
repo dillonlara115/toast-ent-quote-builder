@@ -176,40 +176,23 @@ class teqb_Quote_Builder extends teqb_Base {
             wp_send_json_error(['message' => 'Please fill in all required fields with valid information.']);
         }
         
-        // Prepare email content
-        $email_subject = apply_filters('teqb_admin_email_subject', 'New Quote Request from ' . $name, $submission_data);
-        $email_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'admin');
-        
-        // Email to admin
-        $admin_email = apply_filters('teqb_admin_email', get_option('admin_email'), $submission_data);
-        $admin_message = $this->generate_admin_email_html($submission_data);
-        
-        // Filter for modifying admin email content
-        $admin_message = apply_filters('teqb_admin_email_content', $admin_message, $submission_data);
-        
-        // Email to customer
-        $customer_subject = apply_filters('teqb_customer_email_subject', 'Your Quote Request from Toast Entertainment', $submission_data);
-        $customer_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'customer');
-        $customer_message = $this->generate_customer_email_html($submission_data);
-        
-        // Filter for modifying customer email content
-        $customer_message = apply_filters('teqb_customer_email_content', $customer_message, $submission_data);
-        
-        // Action before sending emails
-        do_action('teqb_before_send_emails', $submission_data);
-        
-        // Send emails
-        $admin_sent = wp_mail($admin_email, $email_subject, $admin_message, $email_headers);
-        $customer_sent = wp_mail($email, $customer_subject, $customer_message, $customer_headers);
-        
-        // Action after sending emails
-        do_action('teqb_after_send_emails', $submission_data, $admin_sent, $customer_sent);
-        
+        $entry_id = $this->store_quote_entry($submission_data);
+        if ($entry_id) {
+            $submission_data['entry_id'] = $entry_id;
+        }
+
+        $send_result = $this->send_quote_notifications($submission_data);
+
+        if ($entry_id) {
+            update_post_meta($entry_id, '_teqb_admin_email_sent', $send_result['admin'] ? current_time('mysql') : '');
+            update_post_meta($entry_id, '_teqb_customer_email_sent', $send_result['customer'] ? current_time('mysql') : '');
+        }
+
         // Filter for modifying success response
         $success_message = apply_filters('teqb_success_message', 'Your quote request has been submitted successfully! We will contact you soon.', $submission_data);
         $error_message = apply_filters('teqb_error_message', 'There was an error submitting your quote request. Please try again.', $submission_data);
-        
-        if ($admin_sent && $customer_sent) {
+
+        if ($send_result['admin'] && $send_result['customer']) {
             wp_send_json_success(['message' => $success_message]);
         } else {
             wp_send_json_error(['message' => $error_message]);
@@ -447,7 +430,7 @@ class teqb_Quote_Builder extends teqb_Base {
                     'bonuses' => $package_bonuses,
                 ],
                 'addOns' => $add_ons,
-                'subtotal' => isset($service['subtotal']) ? floatval($service['subtotal']) : 0,
+                    'subtotal' => isset($service['subtotal']) ? floatval($service['subtotal']) : 0,
             ];
         }
 
@@ -455,9 +438,164 @@ class teqb_Quote_Builder extends teqb_Base {
     }
 
     /**
+     * Persist the submitted quote to the database.
+     */
+    private function store_quote_entry($data) {
+        $post_title_parts = array_filter([
+            __('Quote', 'teqb'),
+            !empty($data['name']) ? '– ' . $data['name'] : '',
+            get_bloginfo('name'),
+        ]);
+
+        $post_id = wp_insert_post([
+            'post_type'   => 'teqb_quote',
+            'post_status' => 'publish',
+            'post_title'  => implode(' ', $post_title_parts),
+        ], true);
+
+        if (is_wp_error($post_id)) {
+            error_log('TEQB: Failed to store quote entry - ' . $post_id->get_error_message());
+            return 0;
+        }
+
+        update_post_meta($post_id, '_teqb_quote_name', $data['name']);
+        update_post_meta($post_id, '_teqb_quote_email', $data['email']);
+        update_post_meta($post_id, '_teqb_quote_phone', $data['phone']);
+        update_post_meta($post_id, '_teqb_quote_event_date', $data['event_date']);
+        update_post_meta($post_id, '_teqb_quote_event_type', $data['event_type']);
+        update_post_meta($post_id, '_teqb_quote_guests', $data['guests']);
+        update_post_meta($post_id, '_teqb_quote_message', $data['message']);
+        update_post_meta($post_id, '_teqb_quote_services', $data['services']);
+        update_post_meta($post_id, '_teqb_quote_subtotal', $data['subtotal']);
+        update_post_meta($post_id, '_teqb_quote_discount', $data['discount']);
+        update_post_meta($post_id, '_teqb_quote_discount_label', $data['discount_label']);
+        update_post_meta($post_id, '_teqb_quote_final_total', $data['final_total']);
+
+        return $post_id;
+    }
+
+    /**
+     * Send admin and customer notifications for the provided submission data.
+     */
+    private function send_quote_notifications($submission_data, $args = array()) {
+        $defaults = array(
+            'target'             => 'customer',
+            'custom_email'       => '',
+            'send_admin_copy'    => true,
+            'send_customer_copy' => true,
+        );
+        $args = wp_parse_args($args, $defaults);
+
+        $settings = get_option('teqb_settings', []);
+        $notification_email = '';
+        if (!empty($settings['notification_email'])) {
+            $sanitized = sanitize_email($settings['notification_email']);
+            if (!empty($sanitized)) {
+                $notification_email = $sanitized;
+            }
+        }
+        if (empty($notification_email)) {
+            $notification_email = get_option('admin_email');
+        }
+
+        $email_subject = apply_filters('teqb_admin_email_subject', 'New Quote Request from ' . $submission_data['name'], $submission_data);
+        $email_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'admin');
+
+        $admin_email = apply_filters('teqb_admin_email', $notification_email, $submission_data);
+        $admin_message = $this->generate_admin_email_html($submission_data);
+        $admin_message = apply_filters('teqb_admin_email_content', $admin_message, $submission_data);
+
+        $customer_subject = apply_filters('teqb_customer_email_subject', 'Your Quote Request from Toast Entertainment', $submission_data);
+        $customer_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'customer');
+        $customer_message = $this->generate_customer_email_html($submission_data);
+        $customer_message = apply_filters('teqb_customer_email_content', $customer_message, $submission_data);
+
+        do_action('teqb_before_send_emails', $submission_data);
+
+        $admin_sent = false;
+        $customer_sent = false;
+
+        if ($args['send_admin_copy']) {
+            $target_admin_email = $admin_email;
+            if ($args['target'] === 'admin' && !empty($args['custom_email'])) {
+                $target_admin_email = $args['custom_email'];
+            }
+            if (!empty($target_admin_email)) {
+                $admin_sent = wp_mail($target_admin_email, $email_subject, $admin_message, $email_headers);
+            }
+        }
+
+        if ($args['send_customer_copy']) {
+            $target_customer_email = $submission_data['email'];
+            if ($args['target'] === 'customer' && !empty($args['custom_email'])) {
+                $target_customer_email = $args['custom_email'];
+            }
+            if (!empty($target_customer_email)) {
+                $customer_sent = wp_mail($target_customer_email, $customer_subject, $customer_message, $customer_headers);
+            }
+        }
+
+        if ($args['target'] === 'custom' && !empty($args['custom_email'])) {
+            $custom_sent = wp_mail($args['custom_email'], $customer_subject, $customer_message, $customer_headers);
+            $customer_sent = $customer_sent || $custom_sent;
+        }
+
+        do_action('teqb_after_send_emails', $submission_data, $admin_sent, $customer_sent);
+
+        return [
+            'admin'    => $admin_sent,
+            'customer' => $customer_sent,
+        ];
+    }
+
+    /**
+     * Resend notifications for a stored entry.
+     */
+    public function resend_quote_entry($entry_id, $args = array()) {
+        $submission_data = $this->build_submission_data_from_entry($entry_id);
+        if (!$submission_data) {
+            return false;
+        }
+
+        $result = $this->send_quote_notifications($submission_data, $args);
+
+        update_post_meta($entry_id, '_teqb_admin_email_sent', $result['admin'] ? current_time('mysql') : '');
+        update_post_meta($entry_id, '_teqb_customer_email_sent', $result['customer'] ? current_time('mysql') : '');
+
+        return ($result['admin'] && $result['customer']);
+    }
+
+    private function build_submission_data_from_entry($entry_id) {
+        $post = get_post($entry_id);
+        if (!$post || $post->post_type !== 'teqb_quote') {
+            return null;
+        }
+
+        $services = get_post_meta($entry_id, '_teqb_quote_services', true);
+        if (!is_array($services)) {
+            $services = array();
+        }
+
+        return array(
+            'name'           => get_post_meta($entry_id, '_teqb_quote_name', true),
+            'email'          => get_post_meta($entry_id, '_teqb_quote_email', true),
+            'phone'          => get_post_meta($entry_id, '_teqb_quote_phone', true),
+            'event_date'     => get_post_meta($entry_id, '_teqb_quote_event_date', true),
+            'event_type'     => get_post_meta($entry_id, '_teqb_quote_event_type', true),
+            'guests'         => get_post_meta($entry_id, '_teqb_quote_guests', true),
+            'message'        => get_post_meta($entry_id, '_teqb_quote_message', true),
+            'services'       => $services,
+            'subtotal'       => floatval(get_post_meta($entry_id, '_teqb_quote_subtotal', true)),
+            'discount'       => floatval(get_post_meta($entry_id, '_teqb_quote_discount', true)),
+            'discount_label' => get_post_meta($entry_id, '_teqb_quote_discount_label', true),
+            'final_total'    => floatval(get_post_meta($entry_id, '_teqb_quote_final_total', true)),
+        );
+    }
+
+    /**
      * Helper to format currency consistently
      */
-    private function format_currency($amount) {
+    public function format_currency($amount) {
         $amount = floatval($amount);
         return '$' . number_format($amount, 2);
     }

@@ -211,14 +211,12 @@
 
     .quote-main {
         flex: 1 1 auto;
-        margin-right: 0;
     }
 
     .quote-sidebar {
         position: sticky;
         top: 24px;
         width: 340px;
-        margin-left: auto;
     }
 }
 

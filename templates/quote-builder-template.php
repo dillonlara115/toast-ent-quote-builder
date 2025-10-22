@@ -306,7 +306,7 @@ if (!defined('ABSPATH')) {
 
     <!-- Step 4: Review & Submit -->
     <div class="form-step" :class="{ 'active': currentStep === 4 }">
-        <div class="grid gap-6 lg:grid-cols-2">
+        <div class="grid gap-6">
             <div class="space-y-4">
                 <h2 class="text-2xl font-bold mb-3">Tell Us About Your Event</h2>
                 <p class="text-gray-600 mb-4">Share your contact details and event info so we can follow up quickly.</p>
