@@ -272,10 +272,61 @@
         message: ''
     });
 
-    const availableServices = Object.keys(quoteData).map((serviceId) => ({
-        id: serviceId,
-        label: quoteData[serviceId].label
-    }));
+    const serviceDescriptions = {
+        djmc: {
+            summary: 'High-energy DJs and charismatic MCs who blend live mixing with flawless hosting so every moment flows effortlessly.',
+            highlights: [
+                'Unlimited consultation & personalized planning',
+                'Premium sound system with ceremony mic and lighting upgrades'
+            ]
+        },
+        photography: {
+            summary: 'Story-driven wedding photography that balances editorial polish with genuine, candid emotion from first look to last dance.',
+            highlights: [
+                'Custom timelines and shot lists tailored to your event',
+                'Engagement, bridal, and multi-photographer options'
+            ]
+        },
+        videography: {
+            summary: 'Cinematic films that capture vows, toasts, and dance moves with crisp audio, drone coverage, and creative storytelling.',
+            highlights: [
+                'Highlight + extended film edits delivered in 4K',
+                'Professional audio capture and optional second cinematographer'
+            ]
+        },
+        coordination: {
+            summary: 'Detail-obsessed coordinators who translate your vision into a seamless celebration so you simply show up and shine.',
+            highlights: [
+                'Hands-on vendor communication and timeline management',
+                'Unlimited day-of coordination with rehearsal coverage options'
+            ]
+        },
+        photobooth: {
+            summary: 'Interactive photo and video experiences that keep guests entertained with premium backdrops, instant sharing, and keepsakes.',
+            highlights: [
+                'Open-air, 360°, and magic mirror booths available',
+                'Stylish props, custom templates, and on-site attendants'
+            ]
+        }
+    };
+
+    const buildAvailableServices = () =>
+        Object.entries(quoteData).map(([serviceId, service]) => {
+            const packages = Array.isArray(service.packages) ? service.packages : [];
+            const priceCandidates = packages
+                .map((pkg) => Number(pkg.price))
+                .filter((value) => !Number.isNaN(value) && value > 0);
+            const startingPrice = priceCandidates.length ? Math.min(...priceCandidates) : 0;
+            const description = serviceDescriptions[serviceId] || {};
+
+            return {
+                id: serviceId,
+                label: service.label,
+                startingPrice,
+                summary: description.summary || 'Explore curated packages, enhancements, and combos.',
+                highlights: Array.isArray(description.highlights) ? description.highlights : []
+            };
+        });
 
     let isRegistered = false;
 
@@ -302,9 +353,10 @@
             submitMessage: '',
             submitSuccess: false,
             formData: defaultFormData(),
-            availableServices,
+            availableServices: [],
 
             init() {
+                this.availableServices = buildAvailableServices();
                 this.setEventDateMin();
             },
 
@@ -396,6 +448,7 @@
                 this.stepError = '';
                 this.editingService = false;
                 this.currentStep = 1;
+                this.recalculateTotals();
             },
 
             proceedToFirstService() {
@@ -431,6 +484,7 @@
                 } else if (existing.length < (packageOption.bonusLimit || 0)) {
                     existing.push(bonus);
                 }
+                this.recalculateTotals();
             },
 
             selectPackage(packageOption) {
@@ -441,6 +495,7 @@
                 selection.selectedPackage = packageOption.id;
                 selection.selectedBonuses = selection.selectedBonuses.slice(0, packageOption.bonusLimit || 0);
                 this.stepError = '';
+                this.recalculateTotals();
             },
 
             backToServices() {
@@ -497,6 +552,7 @@
 
                 if (quantity <= 0) {
                     delete selection.addOns[addOn.id];
+                    this.recalculateTotals();
                     return;
                 }
 
@@ -505,6 +561,7 @@
                     selectedOption: ''
                 };
                 selection.addOns[addOn.id].quantity = Math.max(quantity, min);
+                this.recalculateTotals();
             },
 
             toggleFlatAddOn(addOn) {
@@ -522,6 +579,7 @@
                         selectedOption: ''
                     };
                 }
+                this.recalculateTotals();
             },
 
             isAddOnSelected(addOnId) {
@@ -557,7 +615,8 @@
                     entry.extras[key] = Number(price) || 0;
                 }
 
-               selection.addOns[addOn.id] = entry;
+                selection.addOns[addOn.id] = entry;
+                this.recalculateTotals();
             },
 
             getAddOnOption(addOnId) {
@@ -580,6 +639,7 @@
                     selectedOption: ''
                 };
                 selection.addOns[addOn.id].selectedOption = value;
+                this.recalculateTotals();
             },
 
             getSelectedPackageForService(serviceId) {
@@ -661,6 +721,51 @@
                 return packagePrice + addOnTotal;
             },
 
+            getServiceSnapshot(serviceId) {
+                if (!serviceId || !quoteData[serviceId]) {
+                    return null;
+                }
+
+                const selection = this.serviceSelections[serviceId];
+                if (!selection) {
+                    return null;
+                }
+
+                const serviceDef = quoteData[serviceId];
+                const packageDef = selection.selectedPackage
+                    ? serviceDef.packages.find((pkg) => pkg.id === selection.selectedPackage)
+                    : null;
+
+                if (!packageDef) {
+                    return {
+                        serviceId,
+                        serviceLabel: serviceDef.label,
+                        package: null,
+                        addOns: [],
+                        subtotal: 0,
+                        inProgress: true
+                    };
+                }
+
+                const addOns = this.buildAddOnLines(serviceId);
+                const subtotal = this.calculateServiceSubtotal(serviceId);
+
+                return {
+                    serviceId,
+                    serviceLabel: serviceDef.label,
+                    package: {
+                        id: packageDef.id,
+                        name: packageDef.name,
+                        price: packageDef.price,
+                        includes: Array.isArray(packageDef.includes) ? packageDef.includes.slice() : [],
+                        bonuses: selection.selectedBonuses.slice()
+                    },
+                    addOns,
+                    subtotal,
+                    inProgress: !this.serviceSummaries[serviceId]
+                };
+            },
+
             completeService() {
                 const serviceId = this.currentServiceId;
                 if (!serviceId) {
@@ -672,23 +777,11 @@
                     return;
                 }
 
-                const packageData = this.getSelectedPackageForService(serviceId);
-                const addOnLines = this.buildAddOnLines(serviceId);
-                const subtotal = this.calculateServiceSubtotal(serviceId);
-
-                this.serviceSummaries[serviceId] = {
-                    serviceId,
-                    serviceLabel: quoteData[serviceId].label,
-                    package: {
-                        id: packageData ? packageData.id : '',
-                        name: packageData ? packageData.name : '',
-                        price: packageData ? packageData.price : 0,
-                        includes: packageData && Array.isArray(packageData.includes) ? packageData.includes.slice() : [],
-                        bonuses: selection.selectedBonuses.slice()
-                    },
-                    addOns: addOnLines,
-                    subtotal
-                };
+                const snapshot = this.getServiceSnapshot(serviceId);
+                if (snapshot) {
+                    snapshot.inProgress = false;
+                    this.serviceSummaries[serviceId] = snapshot;
+                }
 
                 this.recalculateTotals();
 
@@ -716,13 +809,18 @@
             },
 
             recalculateTotals() {
-                this.subtotal = this.selectedServices.reduce((sum, serviceId) => {
-                    return sum + (this.serviceSummaries[serviceId] ? this.serviceSummaries[serviceId].subtotal : 0);
-                }, 0);
-                this.serviceProgressCount = Object.keys(this.serviceSummaries).length;
                 this.orderedServiceSummaries = this.selectedServices
-                    .map((id) => this.serviceSummaries[id])
-                    .filter(Boolean);
+                    .map((id) => this.getServiceSnapshot(id))
+                    .filter((snapshot) => snapshot !== null);
+
+                this.subtotal = this.orderedServiceSummaries.reduce((sum, snapshot) => {
+                    return sum + (snapshot.package ? snapshot.subtotal : 0);
+                }, 0);
+
+                this.serviceProgressCount = this.orderedServiceSummaries.filter(
+                    (snapshot) => snapshot.package
+                ).length;
+
                 this.calculateDiscount();
                 this.finalTotal = Math.max(this.subtotal - this.discount, 0);
             },
@@ -757,9 +855,13 @@
                     return;
                 }
                 this.editingService = true;
+                if (this.serviceSummaries[serviceId]) {
+                    delete this.serviceSummaries[serviceId];
+                }
                 this.currentServiceIndex = index;
                 this.currentStep = 2;
                 this.stepError = '';
+                this.recalculateTotals();
             },
 
             returnToLastService() {
@@ -770,6 +872,7 @@
                 this.currentServiceIndex = this.selectedServices.length - 1;
                 this.currentStep = 3;
                 this.stepError = '';
+                this.recalculateTotals();
             },
 
             resetAll() {
@@ -791,6 +894,7 @@
                 this.submitSuccess = false;
                 this.formData = defaultFormData();
                 this.setEventDateMin();
+                this.recalculateTotals();
             },
 
             submitForm() {
@@ -814,6 +918,16 @@
                     return;
                 }
 
+                const servicePayload = this.orderedServiceSummaries
+                    .filter((snapshot) => snapshot && snapshot.package)
+                    .map((snapshot) => ({
+                        serviceId: snapshot.serviceId,
+                        serviceLabel: snapshot.serviceLabel,
+                        package: snapshot.package,
+                        addOns: snapshot.addOns,
+                        subtotal: snapshot.subtotal
+                    }));
+
                 const payload = {
                     action: 'submit_quote',
                     nonce: quoteBuilderConfig.nonce,
@@ -824,7 +938,7 @@
                     event_type: this.formData.eventType,
                     guests: this.formData.guests,
                     message: this.formData.message,
-                    services: JSON.stringify(this.orderedServiceSummaries),
+                    services: JSON.stringify(servicePayload),
                     subtotal: this.subtotal,
                     discount: this.discount,
                     discount_label: this.discountLabel,

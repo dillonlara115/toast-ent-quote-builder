@@ -10,7 +10,9 @@ if (!defined('ABSPATH')) {
 }
 ?>
 
-<div x-data="quoteBuilder()" class="toast-quote-builder">
+<div x-data="quoteBuilder()" class="toast-quote-builder" x-cloak>
+    <div class="quote-layout">
+        <div class="quote-main">
     <!-- Step Indicators -->
     <div class="step-indicators">
         <div class="step-indicator" :class="{ 'active': currentStep === 1, 'completed': currentStep > 1 }">
@@ -47,8 +49,19 @@ if (!defined('ABSPATH')) {
                         class="service-card"
                         :class="{ 'selected': selectedServices.includes(service.id) }"
                         @click="toggleService(service.id)">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-lg font-semibold text-gray-900" x-text="service.label"></h3>
+                    <div class="service-card-header">
+                        <h3 class="service-card-title" x-text="service.label"></h3>
+                        <span class="service-starting" x-text="'Starting at ' + formatCurrency(service.startingPrice)"></span>
+                    </div>
+                    <p class="service-summary" x-text="service.summary"></p>
+                    <template x-if="service.highlights.length">
+                        <ul class="service-highlights">
+                            <template x-for="highlight in service.highlights" :key="highlight">
+                                <li x-text="highlight"></li>
+                            </template>
+                        </ul>
+                    </template>
+                    <div class="service-card-footer">
                         <span class="select-indicator" :class="{ 'active': selectedServices.includes(service.id) }">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
                                  viewBox="0 0 24 24" stroke="currentColor">
@@ -57,13 +70,12 @@ if (!defined('ABSPATH')) {
                             </svg>
                         </span>
                     </div>
-                    <p class="text-gray-500">Explore curated packages, enhancements, and combos.</p>
                 </button>
             </template>
         </div>
 
         <div class="service-selection-summary mt-4 flex items-center justify-between">
-            <p class="text-gray-600">
+            <p class="text-sm text-gray-600">
                 <span class="font-semibold" x-text="selectedServices.length"></span>
                 service<span x-text="selectedServices.length === 1 ? '' : 's'"></span> selected
             </p>
@@ -88,7 +100,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 2 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
                     Service <span x-text="currentServiceDisplayIndex"></span> of <span x-text="selectedServices.length"></span>
                 </p>
                 <h2 class="text-2xl font-bold">
@@ -98,7 +110,7 @@ if (!defined('ABSPATH')) {
                     Select the option that best matches your vision. You can always go back to adjust.
                 </p>
             </div>
-            <div class="text-right text-gray-500" x-show="selectedServices.length > 1">
+            <div class="text-right text-sm text-gray-500" x-show="selectedServices.length > 1">
                 <p>Next service: <span x-text="nextServiceLabel"></span></p>
             </div>
         </div>
@@ -129,7 +141,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="packageOption.bonusOptions">
                         <div class="mt-4">
-                            <p class="font-semibold text-gray-700 mb-2">
+                            <p class="text-sm font-semibold text-gray-700 mb-2">
                                 Choose up to <span x-text="packageOption.bonusLimit"></span> luxury enhancements
                             </p>
                             <div class="flex flex-wrap gap-2">
@@ -167,7 +179,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 3 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
                     Customize <span x-text="currentServiceLabel"></span>
                 </p>
                 <h2 class="text-2xl font-bold">Enhance with Add-ons</h2>
@@ -175,7 +187,7 @@ if (!defined('ABSPATH')) {
                     Optional enhancements to make your experience unforgettable.
                 </p>
             </div>
-            <div class="text-right text-gray-500">
+            <div class="text-right text-sm text-gray-500">
                 <p>Current subtotal: <strong x-text="formatCurrency(currentServiceSubtotal)"></strong></p>
             </div>
         </div>
@@ -186,21 +198,26 @@ if (!defined('ABSPATH')) {
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h3 class="add-on-name" x-text="addOn.name"></h3>
-                            <p class="text-gray-500" x-text="describeAddOn(addOn)"></p>
+                            <p class="text-sm text-gray-500" x-text="describeAddOn(addOn)"></p>
                         </div>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-3">
                             <!-- Quantity based -->
                             <template x-if="addOn.base">
                                 <div class="flex items-center">
-                                    <label class="text-gray-600 mr-2">
-                                        <span x-text="addOn.unit ? addOn.unit : 'Qty'"></span>
-                                    </label>
+                                    <template x-if="!addOn.unit || addOn.unit.toLowerCase() !== 'hour'">
+                                        <label class="text-sm text-gray-600 mr-3">
+                                            <span x-text="addOn.unit ? addOn.unit : 'Quantity'"></span>
+                                        </label>
+                                    </template>
                                     <input type="number"
                                            min="1"
                                            class="w-20 px-2 py-1 border border-gray-300 rounded"
                                            :min="addOn.min ? addOn.min : 1"
                                            :value="getAddOnQuantity(addOn.id)"
                                            @input="updateAddOnQuantity(addOn, $event.target.value)">
+                                    <template x-if="addOn.unit && addOn.unit.toLowerCase() === 'hour'">
+                                        <span class="ml-2 text-sm text-gray-600" x-text="addOn.unit"></span>
+                                    </template>
                                 </div>
                             </template>
                             <!-- Flat price -->
@@ -217,7 +234,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.extras">
                         <div class="mt-4 border-t pt-4">
-                            <p class="font-semibold text-gray-700 mb-2">Optional extras</p>
+                            <p class="text-sm font-semibold text-gray-700 mb-2">Optional extras</p>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="(price, key) in addOn.extras" :key="key">
                                     <button type="button"
@@ -233,7 +250,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.options">
                         <div class="mt-4 border-t pt-4">
-                            <label class="font-semibold text-gray-700 mb-2 block">
+                            <label class="text-sm font-semibold text-gray-700 mb-2 block">
                                 Choose an option
                             </label>
                             <select class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded"
@@ -252,12 +269,12 @@ if (!defined('ABSPATH')) {
 
         <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 class="text-lg font-semibold mb-2">Service Summary</h3>
-            <p class="flex justify-between text-gray-700">
+            <p class="flex justify-between text-sm text-gray-700">
                 <span>Package</span>
                 <span x-text="formatCurrency(currentPackagePrice)"></span>
             </p>
             <template x-for="line in currentAddOnLines" :key="line.id">
-                <p class="flex justify-between text-gray-500">
+                <p class="flex justify-between text-sm text-gray-500">
                     <span>
                         <span x-text="line.name"></span>
                         <template x-if="line.detail">
@@ -291,69 +308,6 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 4 }">
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="space-y-4">
-                <h2 class="text-2xl font-bold">Review Your Selections</h2>
-                <template x-for="service in orderedServiceSummaries" :key="service.serviceId">
-                    <div class="review-card">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900" x-text="service.serviceLabel"></h3>
-                                <p class="text-gray-500">Package: <span x-text="service.package.name"></span></p>
-                            </div>
-                            <button type="button"
-                                    class="text-blue-600 hover:text-blue-700"
-                                    @click="editService(service.serviceId)">
-                                Edit
-                            </button>
-                        </div>
-                        <p class="font-semibold text-gray-700 mt-3">Included:</p>
-                        <ul class="review-list" x-show="service.package.includes.length">
-                            <template x-for="item in service.package.includes" :key="item">
-                                <li x-text="item"></li>
-                            </template>
-                        </ul>
-                        <p class="text-gray-700 mt-2">Package Price: <strong x-text="formatCurrency(service.package.price)"></strong></p>
-                        <template x-if="service.addOns.length">
-                            <div class="mt-3">
-                                <p class="font-semibold text-gray-700 mb-1">Add-ons:</p>
-                                <ul class="review-list">
-                                    <template x-for="addon in service.addOns" :key="addon.id">
-                                        <li>
-                                            <span x-text="addon.name"></span>
-                                            <template x-if="addon.detail">
-                                                <span class="block text-xs text-gray-400" x-text="addon.detail"></span>
-                                            </template>
-                                            <span class="float-right" x-text="formatCurrency(addon.total)"></span>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </div>
-                        </template>
-                        <p class="flex justify-between font-semibold text-gray-900 border-t border-gray-200 mt-3 pt-2">
-                            <span>Service Total</span>
-                            <span x-text="formatCurrency(service.subtotal)"></span>
-                        </p>
-                    </div>
-                </template>
-
-                <div class="pricing-summary">
-                    <h3 class="text-lg font-semibold mb-3 text-gray-900">Pricing Summary</h3>
-                    <div class="pricing-row">
-                        <span>Subtotal</span>
-                        <span x-text="formatCurrency(subtotal)"></span>
-                    </div>
-                    <div class="pricing-row discount" x-show="discount > 0">
-                        <span>Combo Discount</span>
-                        <span>-<span x-text="formatCurrency(discount)"></span></span>
-                    </div>
-                    <div class="discount-message" x-show="discountLabel" x-text="discountLabel"></div>
-                    <div class="pricing-row total">
-                        <span>Final Total</span>
-                        <span x-text="formatCurrency(finalTotal)"></span>
-                    </div>
-                </div>
-            </div>
-
-            <div>
                 <h2 class="text-2xl font-bold mb-3">Tell Us About Your Event</h2>
                 <p class="text-gray-600 mb-4">Share your contact details and event info so we can follow up quickly.</p>
                 <form class="space-y-4">
@@ -425,16 +379,98 @@ if (!defined('ABSPATH')) {
         </div>
     </div>
 
-    <!-- Step 5: Success -->
-    <div class="form-step" :class="{ 'active': currentStep === 5 }">
-        <div class="success-message">
-            <div class="success-icon">✓</div>
-            <h2 class="text-2xl font-bold mb-4">Quote Request Submitted!</h2>
-            <p class="mb-6">Thank you, <span x-text="formData.name"></span>! We’re excited to start planning with you. A confirmation email with your quote summary has been sent to <strong x-text="formData.email"></strong>.</p>
-            <button @click="resetAll"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                Build Another Quote
-            </button>
+        <!-- Step 5: Success -->
+        <div class="form-step" :class="{ 'active': currentStep === 5 }">
+            <div class="success-message">
+                <div class="success-icon">✓</div>
+                <h2 class="text-2xl font-bold mb-4">Quote Request Submitted!</h2>
+                <p class="mb-6">Thank you, <span x-text="formData.name"></span>! We’re excited to start planning with you. A confirmation email with your quote summary has been sent to <strong x-text="formData.email"></strong>.</p>
+                <button @click="resetAll"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Build Another Quote
+                </button>
+            </div>
         </div>
-    </div>
-</div>
+    </div><!-- /.quote-main -->
+
+        <aside class="quote-sidebar">
+            <h2 class="summary-title">Quote Summary</h2>
+            <template x-if="selectedServices.length === 0">
+                <p class="summary-empty-state">
+                    Select a service to start building your quote. Your selections will appear here with live pricing.
+                </p>
+            </template>
+            <div class="summary-services" x-show="selectedServices.length">
+                <template x-for="serviceId in selectedServices" :key="serviceId">
+                    <div class="summary-service"
+                         x-data="{ snapshot: getServiceSnapshot(serviceId) }"
+                         x-effect="snapshot = getServiceSnapshot(serviceId)"
+                         x-show="snapshot">
+                        <div class="summary-service-header">
+                            <h3 x-text="snapshot.serviceLabel"></h3>
+                            <button type="button"
+                                    class="summary-edit"
+                                    @click.prevent="editService(serviceId)"
+                                    x-show="snapshot.package">
+                                Edit
+                            </button>
+                        </div>
+                        <template x-if="snapshot.package">
+                            <div class="summary-service-body">
+                                <p class="summary-package-line">
+                                    <span x-text="snapshot.package.name"></span>
+                                    <span x-text="formatCurrency(snapshot.package.price)"></span>
+                                </p>
+                                <template x-if="snapshot.package.bonuses.length">
+                                    <p class="summary-bonuses">
+                                        Bonuses:
+                                        <span x-text="snapshot.package.bonuses.join(', ')"></span>
+                                    </p>
+                                </template>
+                                <template x-if="snapshot.addOns.length">
+                                    <ul class="summary-addons">
+                                        <template x-for="addon in snapshot.addOns" :key="addon.id">
+                                            <li class="summary-addon-item">
+                                                <div>
+                                                    <span x-text="addon.name"></span>
+                                                    <template x-if="addon.detail">
+                                                        <span class="summary-addon-detail" x-text="addon.detail"></span>
+                                                    </template>
+                                                </div>
+                                                <span x-text="formatCurrency(addon.total)"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </template>
+                                <p class="summary-service-total">
+                                    <span>Service Subtotal</span>
+                                    <span x-text="formatCurrency(snapshot.subtotal)"></span>
+                                </p>
+                            </div>
+                        </template>
+                        <template x-if="!snapshot.package">
+                            <p class="summary-incomplete">
+                                Select a package to begin pricing this service.
+                            </p>
+                        </template>
+                    </div>
+                </template>
+            </div>
+            <div class="summary-totals" x-show="selectedServices.length">
+                <div class="summary-line">
+                    <span>Subtotal</span>
+                    <span x-text="formatCurrency(subtotal)"></span>
+                </div>
+                <div class="summary-line discount" x-show="discount > 0">
+                    <span>Combo Discount</span>
+                    <span>-<span x-text="formatCurrency(discount)"></span></span>
+                </div>
+                <p class="summary-discount-label" x-show="discountLabel" x-text="discountLabel"></p>
+                <div class="summary-line total">
+                    <span>Estimated Total</span>
+                    <span x-text="formatCurrency(finalTotal)"></span>
+                </div>
+            </div>
+        </aside>
+    </div><!-- /.quote-layout -->
+</div><!-- /.toast-quote-builder -->
