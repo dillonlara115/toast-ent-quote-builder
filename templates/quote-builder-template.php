@@ -68,12 +68,6 @@ if (!defined('ABSPATH')) {
                                     <cite class="service-card-quote-attribution" x-text="service.quote.attribution"></cite>
                                 </blockquote>
                             </template>
-                            <template x-if="service.noteBody">
-                                <p class="service-card-note">
-                                    <strong x-text="service.noteHeading"></strong>
-                                    <span x-text="' ' + service.noteBody"></span>
-                                </p>
-                            </template>
                         </div>
                         <template x-if="service.features.length">
                             <div class="service-card-features">

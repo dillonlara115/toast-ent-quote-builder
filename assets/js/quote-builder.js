@@ -283,8 +283,6 @@
                 text: 'From the moment the music started, the dance floor was packed and the energy never dropped. He read the room perfectly and made sure every guest had a reason to dance.',
                 attribution: 'Jordan Dean'
             },
-            noteHeading: 'Before You Choose:',
-            noteBody: 'Some dates, holidays, and locations may affect your package price.',
             featuresTitle: 'Essential services included in ALL Toast DJ/MC Packages:',
             features: [
                 'Professional DJ & MC service',
@@ -309,8 +307,6 @@
                 text: 'The pictures came out amazing and our photographer made us feel so comfortable the entire time.',
                 attribution: 'Brittany Chapman'
             },
-            noteHeading: 'Before You Choose:',
-            noteBody: 'Some dates, holidays, and locations may affect your package price.',
             featuresTitle: 'Essential services included in ALL Toast Photography Packages:',
             features: [
                 'Professional photographer',
@@ -335,8 +331,6 @@
                 text: 'Our video was absolutely perfect. It captured all of the best moments and was edited beautifully.',
                 attribution: 'Meghan & Kyle'
             },
-            noteHeading: 'Before You Choose:',
-            noteBody: 'Some dates, holidays, and locations may affect your package price.',
             featuresTitle: 'Essential services included in ALL Toast Videography Packages:',
             features: [
                 'Professional videographer',
@@ -360,8 +354,6 @@
                 text: 'Our coordinator was incredible. She made sure everything ran smoothly and on time, and we didn’t have to worry about a single thing.',
                 attribution: 'Michelle Ramirez'
             },
-            noteHeading: 'Before You Choose:',
-            noteBody: 'Some dates, holidays, and locations may affect your package price.',
             featuresTitle: 'Essential services included in ALL Toast Coordination Packages:',
             features: [
                 'Dedicated lead coordinator & assistant',
@@ -387,8 +379,6 @@
                 text: 'The photo booth was such a hit at our wedding! Everyone had so much fun and the pictures were hilarious.',
                 attribution: 'Nicole L.'
             },
-            noteHeading: 'Before You Choose:',
-            noteBody: 'Some dates, holidays, and locations may affect your package price.',
             featuresTitle: 'Essential services included in ALL Toast Photo Booth Packages:',
             features: [
                 'Unlimited sessions',
@@ -416,8 +406,6 @@
                 subtitle: description.subtitle || '',
                 paragraphs: Array.isArray(description.paragraphs) ? description.paragraphs : [],
                 quote: description.quote || null,
-                noteHeading: description.noteHeading || '',
-                noteBody: description.noteBody || '',
                 featuresTitle: description.featuresTitle || '',
                 features: Array.isArray(description.features) ? description.features : []
             };
