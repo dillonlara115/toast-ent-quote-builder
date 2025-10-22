@@ -57,13 +57,13 @@ if (!defined('ABSPATH')) {
                             </svg>
                         </span>
                     </div>
-                    <p class="text-sm text-gray-500">Explore curated packages, enhancements, and combos.</p>
+                    <p class="text-gray-500">Explore curated packages, enhancements, and combos.</p>
                 </button>
             </template>
         </div>
 
         <div class="service-selection-summary mt-4 flex items-center justify-between">
-            <p class="text-sm text-gray-600">
+            <p class="text-gray-600">
                 <span class="font-semibold" x-text="selectedServices.length"></span>
                 service<span x-text="selectedServices.length === 1 ? '' : 's'"></span> selected
             </p>
@@ -88,7 +88,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 2 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-blue-600 font-semibold uppercase tracking-wide">
                     Service <span x-text="currentServiceDisplayIndex"></span> of <span x-text="selectedServices.length"></span>
                 </p>
                 <h2 class="text-2xl font-bold">
@@ -98,7 +98,7 @@ if (!defined('ABSPATH')) {
                     Select the option that best matches your vision. You can always go back to adjust.
                 </p>
             </div>
-            <div class="text-right text-sm text-gray-500" x-show="selectedServices.length > 1">
+            <div class="text-right text-gray-500" x-show="selectedServices.length > 1">
                 <p>Next service: <span x-text="nextServiceLabel"></span></p>
             </div>
         </div>
@@ -129,7 +129,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="packageOption.bonusOptions">
                         <div class="mt-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2">
+                            <p class="font-semibold text-gray-700 mb-2">
                                 Choose up to <span x-text="packageOption.bonusLimit"></span> luxury enhancements
                             </p>
                             <div class="flex flex-wrap gap-2">
@@ -167,7 +167,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 3 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-blue-600 font-semibold uppercase tracking-wide">
                     Customize <span x-text="currentServiceLabel"></span>
                 </p>
                 <h2 class="text-2xl font-bold">Enhance with Add-ons</h2>
@@ -175,7 +175,7 @@ if (!defined('ABSPATH')) {
                     Optional enhancements to make your experience unforgettable.
                 </p>
             </div>
-            <div class="text-right text-sm text-gray-500">
+            <div class="text-right text-gray-500">
                 <p>Current subtotal: <strong x-text="formatCurrency(currentServiceSubtotal)"></strong></p>
             </div>
         </div>
@@ -186,13 +186,13 @@ if (!defined('ABSPATH')) {
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h3 class="add-on-name" x-text="addOn.name"></h3>
-                            <p class="text-sm text-gray-500" x-text="describeAddOn(addOn)"></p>
+                            <p class="text-gray-500" x-text="describeAddOn(addOn)"></p>
                         </div>
                         <div class="flex items-center gap-4">
                             <!-- Quantity based -->
                             <template x-if="addOn.base">
                                 <div class="flex items-center">
-                                    <label class="text-sm text-gray-600 mr-2">
+                                    <label class="text-gray-600 mr-2">
                                         <span x-text="addOn.unit ? addOn.unit : 'Qty'"></span>
                                     </label>
                                     <input type="number"
@@ -217,7 +217,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.extras">
                         <div class="mt-4 border-t pt-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2">Optional extras</p>
+                            <p class="font-semibold text-gray-700 mb-2">Optional extras</p>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="(price, key) in addOn.extras" :key="key">
                                     <button type="button"
@@ -233,7 +233,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.options">
                         <div class="mt-4 border-t pt-4">
-                            <label class="text-sm font-semibold text-gray-700 mb-2 block">
+                            <label class="font-semibold text-gray-700 mb-2 block">
                                 Choose an option
                             </label>
                             <select class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded"
@@ -252,12 +252,12 @@ if (!defined('ABSPATH')) {
 
         <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 class="text-lg font-semibold mb-2">Service Summary</h3>
-            <p class="flex justify-between text-sm text-gray-700">
+            <p class="flex justify-between text-gray-700">
                 <span>Package</span>
                 <span x-text="formatCurrency(currentPackagePrice)"></span>
             </p>
             <template x-for="line in currentAddOnLines" :key="line.id">
-                <p class="flex justify-between text-sm text-gray-500">
+                <p class="flex justify-between text-gray-500">
                     <span>
                         <span x-text="line.name"></span>
                         <template x-if="line.detail">
@@ -297,24 +297,24 @@ if (!defined('ABSPATH')) {
                         <div class="flex items-start justify-between">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900" x-text="service.serviceLabel"></h3>
-                                <p class="text-sm text-gray-500">Package: <span x-text="service.package.name"></span></p>
+                                <p class="text-gray-500">Package: <span x-text="service.package.name"></span></p>
                             </div>
                             <button type="button"
-                                    class="text-sm text-blue-600 hover:text-blue-700"
+                                    class="text-blue-600 hover:text-blue-700"
                                     @click="editService(service.serviceId)">
                                 Edit
                             </button>
                         </div>
-                        <p class="text-sm font-semibold text-gray-700 mt-3">Included:</p>
+                        <p class="font-semibold text-gray-700 mt-3">Included:</p>
                         <ul class="review-list" x-show="service.package.includes.length">
                             <template x-for="item in service.package.includes" :key="item">
                                 <li x-text="item"></li>
                             </template>
                         </ul>
-                        <p class="text-sm text-gray-700 mt-2">Package Price: <strong x-text="formatCurrency(service.package.price)"></strong></p>
+                        <p class="text-gray-700 mt-2">Package Price: <strong x-text="formatCurrency(service.package.price)"></strong></p>
                         <template x-if="service.addOns.length">
                             <div class="mt-3">
-                                <p class="text-sm font-semibold text-gray-700 mb-1">Add-ons:</p>
+                                <p class="font-semibold text-gray-700 mb-1">Add-ons:</p>
                                 <ul class="review-list">
                                     <template x-for="addon in service.addOns" :key="addon.id">
                                         <li>
@@ -328,7 +328,7 @@ if (!defined('ABSPATH')) {
                                 </ul>
                             </div>
                         </template>
-                        <p class="flex justify-between text-sm font-semibold text-gray-900 border-t border-gray-200 mt-3 pt-2">
+                        <p class="flex justify-between font-semibold text-gray-900 border-t border-gray-200 mt-3 pt-2">
                             <span>Service Total</span>
                             <span x-text="formatCurrency(service.subtotal)"></span>
                         </p>

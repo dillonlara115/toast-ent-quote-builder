@@ -3,6 +3,15 @@
  * Tailored enhancements layered on top of Flowbite classes.
  */
 
+.toast-quote-builder h2, .toast-quote-builder h3, .toast-quote-builder h4, .toast-quote-builder h5, .toast-quote-builder h6 {
+    font-family: 'Lora', serif !important;
+    color: #1f2937;
+}
+
+.toast-quote-builder p {
+    color: #4b5563;
+}
+
 .toast-quote-builder {
     max-width: 1080px;
     margin: 0 auto;
