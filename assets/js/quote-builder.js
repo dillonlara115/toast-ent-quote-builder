@@ -272,40 +272,129 @@
         message: ''
     });
 
-    const serviceDescriptions = {
+    const serviceContent = {
         djmc: {
-            summary: 'High-energy DJs and charismatic MCs who blend live mixing with flawless hosting so every moment flows effortlessly.',
-            highlights: [
+            title: 'DJ/MC Packages',
+            subtitle: 'Crafting Unforgettable Celebrations',
+            paragraphs: [
+                'Our DJs are true artists, blending live mixing with flawless hosting to keep your night flowing and your dance floor full. Whether it’s the subtle background during dinner or the all-out energy of the last song, we read the room and adapt to every moment.'
+            ],
+            quote: {
+                text: 'From the moment the music started, the dance floor was packed and the energy never dropped. He read the room perfectly and made sure every guest had a reason to dance.',
+                attribution: 'Jordan Dean'
+            },
+            noteHeading: 'Before You Choose:',
+            noteBody: 'Some dates, holidays, and locations may affect your package price.',
+            featuresTitle: 'Essential services included in ALL Toast DJ/MC Packages:',
+            features: [
+                'Professional DJ & MC service',
                 'Unlimited consultation & personalized planning',
-                'Premium sound system with ceremony mic and lighting upgrades'
+                'Premium sound system',
+                'Wireless handheld mic',
+                'Dance floor lighting that turns your reception into a celebration',
+                'Extra speaker for ceremony',
+                'Sleek DJ façade',
+                'Full backup coverage',
+                'Online planning tools',
+                'No hidden fees – travel within 30 miles included'
             ]
         },
         photography: {
-            summary: 'Story-driven wedding photography that balances editorial polish with genuine, candid emotion from first look to last dance.',
-            highlights: [
-                'Custom timelines and shot lists tailored to your event',
-                'Engagement, bridal, and multi-photographer options'
+            title: 'Photography Packages',
+            subtitle: 'Capturing the Story of Your Day',
+            paragraphs: [
+                'Our photographers blend artistry and authenticity to capture both the big moments and the subtle details that tell your story. The result is a collection of images you’ll treasure for a lifetime.'
+            ],
+            quote: {
+                text: 'The pictures came out amazing and our photographer made us feel so comfortable the entire time.',
+                attribution: 'Brittany Chapman'
+            },
+            noteHeading: 'Before You Choose:',
+            noteBody: 'Some dates, holidays, and locations may affect your package price.',
+            featuresTitle: 'Essential services included in ALL Toast Photography Packages:',
+            features: [
+                'Professional photographer',
+                'Unlimited consultation',
+                'Unlimited locations',
+                'High-quality professional editing',
+                'Free online gallery',
+                'Full print rights',
+                'Fast turnaround',
+                'Online customizable shot list',
+                'No hidden fees – travel within 30 miles included',
+                'Bonus: One free 16×24 fine art print'
             ]
         },
         videography: {
-            summary: 'Cinematic films that capture vows, toasts, and dance moves with crisp audio, drone coverage, and creative storytelling.',
-            highlights: [
-                'Highlight + extended film edits delivered in 4K',
-                'Professional audio capture and optional second cinematographer'
+            title: 'Videography Packages',
+            subtitle: 'Turning Moments into Motion',
+            paragraphs: [
+                'We see wedding videography as an art, blending authentic moments with cinematic style for films you’ll want to watch again and again.'
+            ],
+            quote: {
+                text: 'Our video was absolutely perfect. It captured all of the best moments and was edited beautifully.',
+                attribution: 'Meghan & Kyle'
+            },
+            noteHeading: 'Before You Choose:',
+            noteBody: 'Some dates, holidays, and locations may affect your package price.',
+            featuresTitle: 'Essential services included in ALL Toast Videography Packages:',
+            features: [
+                'Professional videographer',
+                '1-minute social media highlight film',
+                'Multiple cameras',
+                'Unlimited consultations',
+                'Unlimited locations',
+                'Fast turnaround',
+                'Full HD digital delivery',
+                'Online hosting',
+                'No hidden fees – travel within 30 miles included'
             ]
         },
         coordination: {
-            summary: 'Detail-obsessed coordinators who translate your vision into a seamless celebration so you simply show up and shine.',
-            highlights: [
-                'Hands-on vendor communication and timeline management',
-                'Unlimited day-of coordination with rehearsal coverage options'
+            title: 'Coordination Packages',
+            subtitle: 'Expertly Crafting Your Event',
+            paragraphs: [
+                'Our coordination team makes sure every detail is perfect, every timeline is on track, and every moment is yours to enjoy.'
+            ],
+            quote: {
+                text: 'Our coordinator was incredible. She made sure everything ran smoothly and on time, and we didn’t have to worry about a single thing.',
+                attribution: 'Michelle Ramirez'
+            },
+            noteHeading: 'Before You Choose:',
+            noteBody: 'Some dates, holidays, and locations may affect your package price.',
+            featuresTitle: 'Essential services included in ALL Toast Coordination Packages:',
+            features: [
+                'Dedicated lead coordinator & assistant',
+                'Unlimited pre-wedding communication',
+                'Exclusive access to our trusted vendor network',
+                '1-hour in-person or virtual consultation',
+                '1-hour venue walkthrough',
+                'Finalization of layout, timeline & checklists',
+                'Vendor management & confirmation',
+                'Last-minute troubleshooting',
+                'Set up & breakdown supervision',
+                'Flawless ceremony & reception flow',
+                'No hidden fees – travel within 30 miles included'
             ]
         },
         photobooth: {
-            summary: 'Interactive photo and video experiences that keep guests entertained with premium backdrops, instant sharing, and keepsakes.',
-            highlights: [
-                'Open-air, 360°, and magic mirror booths available',
-                'Stylish props, custom templates, and on-site attendants'
+            title: 'Photo Booth Packages',
+            subtitle: 'Fun That Guests Take Home',
+            paragraphs: [
+                'Our photo booths are designed for fun — with unlimited prints, awesome props, and instant sharing that guests of all ages love.'
+            ],
+            quote: {
+                text: 'The photo booth was such a hit at our wedding! Everyone had so much fun and the pictures were hilarious.',
+                attribution: 'Nicole L.'
+            },
+            noteHeading: 'Before You Choose:',
+            noteBody: 'Some dates, holidays, and locations may affect your package price.',
+            featuresTitle: 'Essential services included in ALL Toast Photo Booth Packages:',
+            features: [
+                'Unlimited sessions',
+                'Professional photo booth operator',
+                'Fun & hilarious prop collection',
+                'Full digital gallery after the event'
             ]
         }
     };
@@ -317,14 +406,20 @@
                 .map((pkg) => Number(pkg.price))
                 .filter((value) => !Number.isNaN(value) && value > 0);
             const startingPrice = priceCandidates.length ? Math.min(...priceCandidates) : 0;
-            const description = serviceDescriptions[serviceId] || {};
+            const description = serviceContent[serviceId] || {};
 
             return {
                 id: serviceId,
                 label: service.label,
                 startingPrice,
-                summary: description.summary || 'Explore curated packages, enhancements, and combos.',
-                highlights: Array.isArray(description.highlights) ? description.highlights : []
+                title: description.title || service.label,
+                subtitle: description.subtitle || '',
+                paragraphs: Array.isArray(description.paragraphs) ? description.paragraphs : [],
+                quote: description.quote || null,
+                noteHeading: description.noteHeading || '',
+                noteBody: description.noteBody || '',
+                featuresTitle: description.featuresTitle || '',
+                features: Array.isArray(description.features) ? description.features : []
             };
         });
 
@@ -354,6 +449,7 @@
             submitSuccess: false,
             formData: defaultFormData(),
             availableServices: [],
+            showPricingNotes: false,
 
             init() {
                 this.availableServices = buildAvailableServices();

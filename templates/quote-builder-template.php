@@ -43,24 +43,49 @@ if (!defined('ABSPATH')) {
         <h2 class="text-2xl font-bold mb-3">What services are you inquiring about?</h2>
         <p class="mb-6 text-gray-600">Choose one or more services to build your perfect celebration.</p>
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="service-cards-stack">
             <template x-for="service in availableServices" :key="service.id">
                 <button type="button"
                         class="service-card"
                         :class="{ 'selected': selectedServices.includes(service.id) }"
                         @click="toggleService(service.id)">
-                    <div class="service-card-header">
-                        <h3 class="service-card-title" x-text="service.label"></h3>
+                    <div class="service-card-banner">
+                        <div>
+                            <p class="service-card-heading" x-text="service.title"></p>
+                            <p class="service-card-subheading" x-text="service.subtitle"></p>
+                        </div>
                         <span class="service-starting" x-text="'Starting at ' + formatCurrency(service.startingPrice)"></span>
                     </div>
-                    <p class="service-summary" x-text="service.summary"></p>
-                    <template x-if="service.highlights.length">
-                        <ul class="service-highlights">
-                            <template x-for="highlight in service.highlights" :key="highlight">
-                                <li x-text="highlight"></li>
+                    <div class="service-card-body">
+                        <div class="service-card-copy">
+                            <template x-for="paragraph in service.paragraphs" :key="paragraph">
+                                <p x-text="paragraph"></p>
                             </template>
-                        </ul>
-                    </template>
+                            <template x-if="service.quote">
+                                <blockquote class="service-card-quote">
+                                    
+                                    <span class="service-card-quote-text" x-text="service.quote.text"></span>
+                                    <cite class="service-card-quote-attribution" x-text="service.quote.attribution"></cite>
+                                </blockquote>
+                            </template>
+                            <template x-if="service.noteBody">
+                                <p class="service-card-note">
+                                    <strong x-text="service.noteHeading"></strong>
+                                    <span x-text="' ' + service.noteBody"></span>
+                                </p>
+                            </template>
+                        </div>
+                        <template x-if="service.features.length">
+                            <div class="service-card-features">
+                                <h4 x-text="service.featuresTitle"></h4>
+                                <ul>
+                                    <template x-for="feature in service.features" :key="feature">
+                                        <li x-text="feature"></li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+                    </div>
                     <div class="service-card-footer">
                         <span class="select-indicator" :class="{ 'active': selectedServices.includes(service.id) }">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
@@ -456,7 +481,7 @@ if (!defined('ABSPATH')) {
                     </div>
                 </template>
             </div>
-            <div class="summary-totals" x-show="selectedServices.length">
+            <div class="summary-totals">
                 <div class="summary-line">
                     <span>Subtotal</span>
                     <span x-text="formatCurrency(subtotal)"></span>
@@ -470,7 +495,27 @@ if (!defined('ABSPATH')) {
                     <span>Estimated Total</span>
                     <span x-text="formatCurrency(finalTotal)"></span>
                 </div>
+                <button type="button" class="summary-notes-link" @click="showPricingNotes = true">
+                    Details &amp; Pricing Notes
+                </button>
             </div>
         </aside>
     </div><!-- /.quote-layout -->
+
+    <div x-show="showPricingNotes" x-cloak class="pricing-notes-overlay" @keydown.escape.window="showPricingNotes = false">
+        <div class="pricing-notes-modal" role="dialog" aria-modal="true" aria-labelledby="pricing-notes-title">
+            <button type="button" class="pricing-notes-close" @click="showPricingNotes = false" aria-label="Close">
+                &times;
+            </button>
+            <h3 class="pricing-notes-kicker"><?php esc_html_e('Build a Quote', 'teqb'); ?></h3>
+            <h2 class="pricing-notes-title" id="pricing-notes-title"><?php esc_html_e('Some Notes on Pricing', 'teqb'); ?></h2>
+            <div class="pricing-notes-content">
+                <p>If you do not see a package that works for you, please contact us and we would be happy to arrange a package more closely suited to your needs and budget!</p>
+                <p>All applicable taxes are already included in the price listed. Peak dates may affect pricing.</p>
+                <p>For Saturday events in March, April, May, September, November, and December, please add $100 to the package price. For Saturday events in October, please add $200 to the package price.</p>
+                <p>National holiday rates may differ. Please inquire for accurate quote.</p>
+            </div>
+        </div>
+        <div class="pricing-notes-backdrop" @click="showPricingNotes = false"></div>
+    </div>
 </div><!-- /.toast-quote-builder -->
