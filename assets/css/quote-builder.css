@@ -12,10 +12,21 @@
     margin: 0 auto;
     padding: 32px;
     background-color: #ffffff;
-    border-radius: 16px;
+    border-radius: 0;
     box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
 }
 
+/* Flatten Flowbite rounded utilities inside the builder */
+.toast-quote-builder [class*="rounded"] {
+    border-radius: 0 !important;
+}
+
+.toast-quote-builder button,
+.toast-quote-builder input,
+.toast-quote-builder select,
+.toast-quote-builder textarea {
+    border-radius: 0;
+}
 .toast-quote-builder h2,
 .toast-quote-builder h3,
 .toast-quote-builder h4,
@@ -44,7 +55,7 @@
     top: 24px;
     align-self: flex-start;
     flex: 0 0 340px;
-    border-radius: 16px;
+    border-radius: 0;
     border: 1px solid #e5e7eb;
     background-color: #f9fafb;
     padding: 24px;
@@ -73,7 +84,7 @@
 
 .summary-service {
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
+    border-radius: 0;
     background-color: #ffffff;
     padding: 16px;
     box-shadow: 0 5px 12px rgba(15, 23, 42, 0.06);
@@ -103,7 +114,7 @@
     font-weight: 600;
     color: #2563eb;
     padding: 4px 10px;
-    border-radius: 9999px;
+    border-radius: 0;
     border: 1px solid transparent;
     background-color: rgba(37, 99, 235, 0.08);
     transition: all 0.2s ease;
@@ -241,7 +252,7 @@
     color: #1f2937;
     max-width: 560px;
     width: 90%;
-    border-radius: 16px;
+    border-radius: 0;
     padding: 32px 32px 28px;
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
     z-index: 1001;
@@ -318,7 +329,7 @@
     flex-direction: column;
     align-items: center;
     padding: 12px 8px;
-    border-radius: 9999px;
+    border-radius: 8px;
     background-color: #f3f4f6;
     transition: background-color 0.3s ease;
 }
@@ -326,7 +337,7 @@
 .step-indicator .step-number {
     width: 38px;
     height: 38px;
-    border-radius: 50%;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -393,32 +404,32 @@
 .service-cards-stack {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 18px;
 }
 
 .service-card {
     width: 100%;
-    border: 2px solid transparent;
-    border-radius: 16px;
-    background-color: #f9fafb;
+    border: 1px solid #d6e3ff;
+    border-radius: 0;
+    background-color: #ffffff;
     text-align: left;
     transition: all 0.25s ease;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     overflow: hidden;
+    box-shadow: 0 8px 22px rgba(30, 64, 175, 0.08);
 }
 
 .service-card:hover {
-    border-color: #dbeafe;
-    background-color: #eff6ff;
-    transform: translateY(-3px);
+    border-color: #c0d4ff;
+    box-shadow: 0 12px 28px rgba(30, 64, 175, 0.12);
+    transform: translateY(-2px);
 }
 
 .service-card.selected {
-    border-color: #2563eb;
-    background-color: #eff6ff;
-    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
+    border-color: #5b7dff;
+    box-shadow: 0 16px 32px rgba(30, 64, 175, 0.16);
 }
 
 .service-card-banner {
@@ -426,48 +437,52 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px 20px 14px;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(37, 99, 235, 0.05));
+    padding: 18px 20px 16px;
+    background: linear-gradient(135deg, #e6edff 0%, #d7e9ff 100%);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .service-card-heading {
-    font-size: 1.05rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: #0f172a;
-    margin: 0 0 2px;
+    margin: 0 0 6px;
+    font-family: 'Lora', serif;
 }
 
 .service-card-subheading {
-    font-size: 0.9rem;
-    color: #475569;
+    font-size: 1rem;
+    color: #64748b;
     margin: 0;
 }
 
 .service-starting {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    color: #2563eb;
-    background-color: rgba(37, 99, 235, 0.12);
-    padding: 4px 10px;
-    border-radius: 9999px;
+    color: #1d4ed8;
+    background-color: rgba(59, 130, 246, 0.16);
+    padding: 6px 16px;
+    border-radius: 9999px !important;
     white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .service-card-body {
-    display: grid;
-    gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
     padding: 20px;
 }
 
 .service-card-copy p {
-    font-size: 0.9rem;
-    color: #1f2937;
-    line-height: 1.6;
+    font-size: 1rem;
+    color: #111827;
+    line-height: 1.65;
     margin: 0 0 12px;
 }
 
 .service-card-quote {
+    display: none;
     margin: 8px 0 14px;
     padding: 10px 16px;
     background-color: #f8fafc;
@@ -508,40 +523,57 @@
 }
 
 .service-card-features {
-    background-color: #f3f4f6;
-    border-radius: 12px;
+    background-color: #f8fafc;
+    border-radius: 0;
     padding: 16px 18px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .service-card-features h4 {
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    color: #111827;
-    margin: 0 0 10px;
+    color: #0f172a;
+    margin: 0 0 14px;
 }
 
 .service-card-features ul {
     list-style: disc;
-    padding-left: 18px;
+    padding-left: 20px;
     margin: 0;
-    font-size: 0.85rem;
-    color: #374151;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    font-size: 0.95rem;
+    color: #1f2937;
+    column-count: 2;
+    column-gap: 24px;
+}
+
+@media (max-width: 768px) {
+    .service-card-features ul {
+        column-count: 1;
+    }
 }
 
 .service-card-footer {
     margin-top: auto;
-    padding: 10px 20px 18px;
+    padding: 14px 20px 16px;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95rem;
+    color: #111827;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.service-card-footer::before {
+    content: "Select this service:";
 }
 
 .select-indicator {
     width: 30px;
     height: 30px;
-    border-radius: 50%;
+    border-radius: 9999px;
     border: 2px solid #d1d5db;
     display: flex;
     align-items: center;
@@ -558,7 +590,7 @@
 
 .package-card {
     border: 2px solid #e5e7eb;
-    border-radius: 16px;
+    border-radius: 0;
     padding: 24px;
     background-color: #ffffff;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -608,7 +640,7 @@
 
 .bonus-chip {
     border: 1px solid #d1d5db;
-    border-radius: 9999px;
+    border-radius: 0;
     padding: 6px 12px;
     background-color: #ffffff;
     color: #4b5563;
@@ -629,7 +661,7 @@
 
 .add-on-card {
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 0;
     padding: 18px;
     background-color: #ffffff;
     transition: all 0.25s ease;
@@ -647,7 +679,7 @@
 
 .toggle-button {
     border: 1px solid #d1d5db;
-    border-radius: 9999px;
+    border-radius: 0;
     padding: 6px 14px;
     font-weight: 600;
     font-size: 0.875rem;
@@ -672,7 +704,7 @@
 
 .pricing-summary {
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 0;
     padding: 18px;
     background-color: #f9fafb;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -706,7 +738,7 @@
 
 .review-card {
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 0;
     padding: 18px;
     background-color: #ffffff;
     box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
@@ -740,7 +772,7 @@
 .form-input {
     width: 100%;
     border: 1px solid #d1d5db;
-    border-radius: 10px;
+    border-radius: 0;
     padding: 10px 12px;
     font-size: 0.95rem;
     color: #111827;
@@ -761,7 +793,7 @@
 .success-icon {
     width: 72px;
     height: 72px;
-    border-radius: 50%;
+    border-radius: 0;
     background-color: #10b981;
     color: #ffffff;
     display: inline-flex;
