@@ -120,7 +120,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 2 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-sm  font-semibold uppercase tracking-wide">
                     Service <span x-text="currentServiceDisplayIndex"></span> of <span x-text="selectedServices.length"></span>
                 </p>
                 <h2 class="text-2xl font-bold">
@@ -149,7 +149,7 @@ if (!defined('ABSPATH')) {
                     <ul class="package-features">
                         <template x-for="item in packageOption.includes" :key="item">
                             <li>
-                                <svg class="h-4 w-4 text-blue-500 mr-2" fill="none" stroke="currentColor"
+                                <svg class="h-4 w-4  mr-2" fill="none" stroke="currentColor"
                                      viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M5 13l4 4L19 7"></path>
@@ -187,7 +187,8 @@ if (!defined('ABSPATH')) {
                 Back to Services
             </button>
             <button @click="goToAddOns"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    class="text-white font-bold py-2 px-4 rounded"
+                    style="background-color: var(--qb-color);"
                     :disabled="!serviceSelections[currentServiceId].selectedPackage"
                     type="button">
                 Next: Add-ons
@@ -199,7 +200,7 @@ if (!defined('ABSPATH')) {
     <div class="form-step" :class="{ 'active': currentStep === 3 }">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <p class="text-sm text-blue-600 font-semibold uppercase tracking-wide">
+                <p class="text-sm  font-semibold uppercase tracking-wide">
                     Customize <span x-text="currentServiceLabel"></span>
                 </p>
                 <h2 class="text-2xl font-bold">Enhance with Add-ons</h2>
@@ -317,7 +318,8 @@ if (!defined('ABSPATH')) {
                 Back to Packages
             </button>
             <button @click="completeService"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    class="text-white font-bold py-2 px-4 rounded"
+                    style="background-color: var(--qb-color);"
                     type="button">
                 <span x-text="currentServiceIndex === selectedServices.length - 1 ? 'Review Quote' : 'Next Service'"></span>
             </button>
@@ -406,7 +408,7 @@ if (!defined('ABSPATH')) {
                 <h2 class="text-2xl font-bold mb-4">Quote Request Submitted!</h2>
                 <p class="mb-6">Thank you, <span x-text="formData.name"></span>! We’re excited to start planning with you. A confirmation email with your quote summary has been sent to <strong x-text="formData.email"></strong>.</p>
                 <button @click="resetAll"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        class="text-white font-bold py-2 px-4 rounded">
                     Build Another Quote
                 </button>
             </div>
