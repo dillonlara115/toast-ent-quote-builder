@@ -3,17 +3,29 @@
  * Tailored enhancements layered on top of Flowbite classes.
  */
 
+
+:root {
+    --qb-color: var(--qb-color, ##eee);
+}
+
 [x-cloak] {
     display: none !important;
 }
 
 .toast-quote-builder {
+
     max-width: 1180px;
     margin: 0 auto;
     padding: 32px;
     background-color: #ffffff;
     border-radius: 0;
     box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
+}
+
+@supports (color: color-mix(in srgb, red 20%, transparent)) {
+    .toast-quote-builder {
+        --qb-color-soft: color-mix(in srgb, var(--qb-color) 20%, transparent);
+    }
 }
 
 /* Flatten Flowbite rounded utilities inside the builder */
@@ -33,12 +45,10 @@
 .toast-quote-builder h5,
 .toast-quote-builder h6 {
     font-family: 'Lora', serif !important;
-    color: #1f2937;
+    color: var(--qb-color);
 }
 
-.toast-quote-builder p {
-    color: #4b5563;
-}
+
 
 .quote-layout {
     display: flex;
@@ -57,7 +67,7 @@
     flex: 0 0 340px;
     border-radius: 0;
     border: 1px solid #e5e7eb;
-    background-color: #f9fafb;
+    background-color: var(--toast-secondary-bg);
     padding: 24px;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
@@ -66,7 +76,7 @@
     font-size: 1.25rem;
     font-weight: 700;
     margin-bottom: 16px;
-    color: #1f2937;
+    color: var(--qb-color);
 }
 
 .summary-empty-state {
@@ -112,16 +122,16 @@
 .summary-edit {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #2563eb;
+    color: var(--qb-color);
     padding: 4px 10px;
     border-radius: 0;
     border: 1px solid transparent;
-    background-color: rgba(37, 99, 235, 0.08);
+    background-color: var(--qb-color-soft);
     transition: all 0.2s ease;
 }
 
 .summary-edit:hover {
-    background-color: #2563eb;
+    background-color: var(--qb-color);
     color: #ffffff;
 }
 
@@ -130,7 +140,7 @@
     align-items: center;
     justify-content: space-between;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--awb-bg-color);
     margin-bottom: 8px;
 }
 
@@ -154,7 +164,7 @@
     align-items: flex-start;
     justify-content: space-between;
     font-size: 0.9rem;
-    color: #374151;
+    color: var(--awb-bg-color);
     gap: 12px;
 }
 
@@ -194,7 +204,7 @@
     align-items: center;
     justify-content: space-between;
     font-size: 0.95rem;
-    color: #1f2937;
+    color: var(--qb-color);
 }
 
 .summary-line.discount {
@@ -204,7 +214,6 @@
 .summary-line.total {
     font-weight: 700;
     font-size: 1.05rem;
-    color: #111827;
 }
 
 .summary-discount-label {
@@ -218,7 +227,7 @@
     margin-top: 12px;
     font-size: 0.85rem;
     font-weight: 600;
-    color: #2563eb;
+    color: var(--qb-color);
     background: none;
     border: none;
     padding: 0;
@@ -228,7 +237,7 @@
 
 .summary-notes-link:hover,
 .summary-notes-link:focus {
-    color: #1d4ed8;
+    color: var(--qb-color);
 }
 
 .pricing-notes-overlay {
@@ -249,7 +258,6 @@
 .pricing-notes-modal {
     position: relative;
     background-color: #ffffff;
-    color: #1f2937;
     max-width: 560px;
     width: 90%;
     border-radius: 0;
@@ -271,7 +279,7 @@
     font-size: 1.75rem;
     font-weight: 600;
     margin: 4px 0 18px;
-    color: #0f172a;
+    color: var(--qb-color);
     font-family: 'Lora', serif;
 }
 
@@ -295,7 +303,7 @@
 
 .pricing-notes-close:hover,
 .pricing-notes-close:focus {
-    color: #1f2937;
+    color: var(--qb-color);
 }
 
 @media (min-width: 1024px) {
@@ -330,7 +338,7 @@
     align-items: center;
     padding: 12px 8px;
     border-radius: 8px;
-    background-color: #f3f4f6;
+    background-color: var(--toast-secondary-bg);
     transition: background-color 0.3s ease;
 }
 
@@ -342,7 +350,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    background-color: #e5e7eb;
+    background-color: var(--toast-secondary-bg);
     color: #6b7280;
     margin-bottom: 6px;
     transition: all 0.3s ease;
@@ -356,16 +364,16 @@
 }
 
 .step-indicator.active {
-    background-color: #e0f2fe;
+    background-color: var(--qb-color-soft);
 }
 
 .step-indicator.active .step-number {
-    background-color: #3b82f6;
+    background-color: var(--qb-color);
     color: #ffffff;
 }
 
 .step-indicator.active .step-label {
-    color: #1d4ed8;
+    color: var(--qb-color);
 }
 
 .step-indicator.completed {
@@ -428,7 +436,7 @@
 }
 
 .service-card.selected {
-    border-color: #5b7dff;
+    border-color: var(--qb-color);
     box-shadow: 0 16px 32px rgba(30, 64, 175, 0.16);
 }
 
@@ -438,33 +446,34 @@
     justify-content: space-between;
     gap: 16px;
     padding: 18px 20px 16px;
-    background: linear-gradient(135deg, #e6edff 0%, #d7e9ff 100%);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    background-color: var(--qb-color);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .service-card-heading {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #0f172a;
+    color: #ffffff;
     margin: 0 0 6px;
     font-family: 'Lora', serif;
 }
 
 .service-card-subheading {
     font-size: 1rem;
-    color: #64748b;
+    color: rgba(255, 255, 255, 0.78);
     margin: 0;
 }
 
 .service-starting {
     font-size: 0.95rem;
     font-weight: 700;
-    color: #1d4ed8;
-    background-color: rgba(59, 130, 246, 0.16);
+    color: var(--qb-color);
+    background-color: #ffffff;
     padding: 6px 16px;
     border-radius: 9999px !important;
     white-space: nowrap;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.65);
 }
 
 .service-card-body {
@@ -485,8 +494,8 @@
     display: none;
     margin: 8px 0 14px;
     padding: 10px 16px;
-    background-color: #f8fafc;
-    border-left: 3px solid #2563eb;
+    background-color: var(--toast-secondary-bg);
+    border-left: 3px solid var(--qb-color);
     position: relative;
     font-size: 0.9rem;
     color: #1e293b;
@@ -514,7 +523,7 @@
 
 .service-card-note {
     font-size: 0.85rem;
-    color: #1f2937;
+    color: var(--qb-color);
     margin: 0;
 }
 
@@ -523,7 +532,7 @@
 }
 
 .service-card-features {
-    background-color: #f8fafc;
+    background-color: var(--toast-secondary-bg);
     border-radius: 0;
     padding: 16px 18px;
     border: 1px solid rgba(148, 163, 184, 0.25);
@@ -533,7 +542,7 @@
 .service-card-features h4 {
     font-size: 1.05rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--qb-color);
     margin: 0 0 14px;
 }
 
@@ -542,7 +551,6 @@
     padding-left: 20px;
     margin: 0;
     font-size: 0.95rem;
-    color: #1f2937;
     column-count: 2;
     column-gap: 24px;
 }
@@ -561,7 +569,7 @@
     align-items: center;
     gap: 12px;
     font-size: 0.95rem;
-    color: #111827;
+    color: var(--qb-color);
     font-weight: 600;
     letter-spacing: 0.01em;
 }
@@ -583,8 +591,8 @@
 }
 
 .select-indicator.active {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: var(--qb-color);
+    border-color: var(--qb-color);
     color: #ffffff;
 }
 
@@ -612,7 +620,7 @@
 .package-name {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--qb-color);
     margin-bottom: 6px;
 }
 
@@ -654,8 +662,8 @@
 }
 
 .bonus-chip.active {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: var(--qb-color);
+    border-color: var(--qb-color);
     color: #ffffff;
 }
 
@@ -674,7 +682,7 @@
 
 .add-on-name {
     font-weight: 600;
-    color: #1f2937;
+    color: var(--qb-color);
 }
 
 .toggle-button {
@@ -684,14 +692,14 @@
     font-weight: 600;
     font-size: 0.875rem;
     background-color: #ffffff;
-    color: #1f2937;
+    color: var(--qb-color);
     transition: all 0.2s ease;
 }
 
 .toggle-button.active,
 .toggle-button:hover {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: var(--qb-color);
+    border-color: var(--qb-color);
     color: #ffffff;
 }
 
@@ -706,7 +714,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 0;
     padding: 18px;
-    background-color: #f9fafb;
+    background-color: var(--toast-secondary-bg);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
@@ -716,7 +724,7 @@
     justify-content: space-between;
     padding: 6px 0;
     font-size: 0.95rem;
-    color: #374151;
+    color: var(--awb-bg-color);
 }
 
 .pricing-row.total {
@@ -752,7 +760,7 @@
 
 .review-list li {
     font-size: 0.95rem;
-    color: #374151;
+    color: var(--awb-bg-color);
     padding: 4px 0;
     border-bottom: 1px solid #f3f4f6;
 }
@@ -764,7 +772,7 @@
 .form-label {
     display: block;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--qb-color);
     margin-bottom: 6px;
     font-size: 0.95rem;
 }

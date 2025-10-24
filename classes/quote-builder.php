@@ -58,15 +58,22 @@ class teqb_Quote_Builder extends teqb_Base {
             'before'
         );
         wp_script_add_data('alpinejs', 'defer', true);
-        
-        // Custom CSS
+        add_action('wp_print_styles', function() {
+            global $wp_styles;
+            echo '<!-- Enqueued Styles -->';
+            foreach ($wp_styles->queue as $handle) {
+                echo '<!-- ' . $handle . ' -->';
+            }
+            echo '<!-- End Enqueued Styles -->';
+        });
+        // Custom CSS - Load after Flowbite CSS and Fusion styles
         wp_enqueue_style(
             'quote-builder-css',
             plugin_dir_url(dirname(__FILE__)) . 'assets/css/quote-builder.css',
-            ['flowbite-css'],
-            $this->config['version']
+            ['flowbite-css', 'fusion-dynamic-css'],
+            $this->config['version'],
+            'all'
         );
-        
         // Custom JS - Load in header with Alpine.js as dependency so the component is available
         wp_enqueue_script(
             'quote-builder-js',

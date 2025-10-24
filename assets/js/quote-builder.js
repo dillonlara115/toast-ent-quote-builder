@@ -5,6 +5,8 @@
 
 (function () {
     const quoteData = {
+       
+        
         djmc: {
             label: 'DJ / MC',
             packages: [
@@ -1084,4 +1086,40 @@
             registerComponent();
         }
     }
+
+     // Function to set primary color based on URL
+     function setPrimaryColorFromURL() {
+        const url = window.location.href.toLowerCase();
+        const root = document.documentElement;
+        
+        if (url.includes('austin')) {
+        console.log(root.style.getPropertyValue('--qb-color'));
+            root.style.setProperty('--qb-color', '#bf5700');
+        } else if (url.includes('dallas')) {
+            root.style.setProperty('--qb-color', '#3286ba');
+        } else if (url.includes('houston')) {
+            root.style.setProperty('--qb-color', '#b22222');
+        } else if (url.includes('san-antonio')) {
+            root.style.setProperty('--qb-color', '#708e76');
+        } else if (url.includes('little-rock')) {
+            root.style.setProperty('--qb-color', '#6e7a1f');
+        } else if (url.includes('long-island')) {
+            root.style.setProperty('--qb-color', '#008080');
+        } else if (url.includes('new-orleans')) {
+            root.style.setProperty('--qb-color', '#734c7b');
+        } else if (url.includes('texas')) {
+            root.style.setProperty('--qb-color', '#c91250');
+        } else if (url.includes('washington')) {
+            root.style.setProperty('--qb-color', '#4763a5');
+        } else if (url.includes('worth')) {
+            root.style.setProperty('--qb-color', '#036a3b');
+        } else {
+            root.style.setProperty('--qb-color', '#eee');
+        }
+
+        console.log(root.style.getPropertyValue('--qb-color'));
+    }
+    
+    // Call the function when the page loads
+    setPrimaryColorFromURL();
 })();
