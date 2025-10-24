@@ -1114,7 +1114,7 @@
         } else if (url.includes('worth')) {
             root.style.setProperty('--qb-color', '#036a3b');
         } else {
-            root.style.setProperty('--qb-color', '#eee');
+            root.style.setProperty('--qb-color', '#555');
         }
 
         console.log(root.style.getPropertyValue('--qb-color'));

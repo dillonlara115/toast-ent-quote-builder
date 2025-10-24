@@ -5,7 +5,7 @@
 
 
 :root {
-    --qb-color: var(--qb-color, ##eee);
+    --qb-color: var(--qb-color, #555);
 }
 
 [x-cloak] {
@@ -140,13 +140,13 @@
     align-items: center;
     justify-content: space-between;
     font-weight: 600;
-    color: var(--awb-bg-color);
+    color: #555;
     margin-bottom: 8px;
 }
 
 .summary-bonuses {
     font-size: 0.85rem;
-    color: #0369a1;
+    color: #555;
     margin-bottom: 8px;
 }
 
@@ -164,7 +164,7 @@
     align-items: flex-start;
     justify-content: space-between;
     font-size: 0.9rem;
-    color: var(--awb-bg-color);
+    color: #555;
     gap: 12px;
 }
 
@@ -613,7 +613,7 @@
 }
 
 .package-card.selected {
-    border-color: #4f46e5;
+    border-color: var(--qb-color);
     box-shadow: 0 20px 30px rgba(79, 70, 229, 0.18);
 }
 
@@ -627,7 +627,7 @@
 .package-price {
     font-size: 1.5rem;
     font-weight: 800;
-    color: #2563eb;
+    color: #555;
     margin-bottom: 12px;
 }
 
@@ -724,7 +724,7 @@
     justify-content: space-between;
     padding: 6px 0;
     font-size: 0.95rem;
-    color: var(--awb-bg-color);
+    color: #555;
 }
 
 .pricing-row.total {
@@ -760,7 +760,7 @@
 
 .review-list li {
     font-size: 0.95rem;
-    color: var(--awb-bg-color);
+    color: #555;
     padding: 4px 0;
     border-bottom: 1px solid #f3f4f6;
 }
