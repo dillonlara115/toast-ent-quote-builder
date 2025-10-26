@@ -546,6 +546,7 @@
                 this.currentStep = 2;
                 this.stepError = '';
                 this.editingService = false;
+                this.scrollToBuilderTop();
             },
 
             packageBonusSelected(packageId, bonus) {
@@ -597,6 +598,7 @@
                 }
                 this.currentStep = 3;
                 this.stepError = '';
+                this.scrollToBuilderTop();
             },
 
             backToPackages() {
@@ -875,12 +877,16 @@
                     this.editingService = false;
                     this.currentStep = 4;
                     this.stepError = '';
+                    this.scrollToBuilderTop();
                     return;
                 }
 
                 if (this.currentServiceIndex < this.selectedServices.length - 1) {
                     this.currentServiceIndex++;
                     this.currentStep = 2;
+                    this.stepError = '';
+                    this.scrollToBuilderTop();
+                    return;
                 } else {
                     this.finishQuote();
                 }
@@ -892,6 +898,7 @@
                 this.recalculateTotals();
                 this.editingService = false;
                 this.currentStep = 4;
+                this.scrollToBuilderTop();
             },
 
             recalculateTotals() {
@@ -1074,6 +1081,29 @@
 
             formatCurrency(amount) {
                 return formatCurrencyValue(amount);
+            },
+
+            scrollToBuilderTop() {
+                this.$nextTick(() => {
+                    let root = this.$el;
+                    if (this.$refs && this.$refs.builderRoot) {
+                        root = this.$refs.builderRoot;
+                    }
+
+                    if (!root) {
+                        return;
+                    }
+
+                    const top = root.getBoundingClientRect().top + window.scrollY;
+                    window.scrollTo({
+                        top: Math.max(top - 16, 0),
+                        behavior: 'smooth'
+                    });
+
+                    if (typeof root.focus === 'function') {
+                        root.focus({ preventScroll: true });
+                    }
+                });
             }
         }));
 

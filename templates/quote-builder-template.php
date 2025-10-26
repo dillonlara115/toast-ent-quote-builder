@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 ?>
 
-<div x-data="quoteBuilder()" class="toast-quote-builder" x-cloak>
+<div x-data="quoteBuilder()" x-ref="builderRoot" class="toast-quote-builder" x-cloak tabindex="-1">
     <div class="quote-layout">
         <div class="quote-main">
     <!-- Step Indicators -->
