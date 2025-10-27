@@ -116,7 +116,7 @@
 .summary-service-header h3 {
     font-size: 1rem;
     font-weight: 700;
-    color: #111827;
+    
 }
 
 .summary-edit {
@@ -485,7 +485,7 @@
 
 .service-card-copy p {
     font-size: 1rem;
-    color: #111827;
+    
     line-height: 1.65;
     margin: 0 0 12px;
 }
@@ -730,7 +730,7 @@
 .pricing-row.total {
     font-weight: 700;
     font-size: 1.05rem;
-    color: #111827;
+    
 }
 
 .pricing-row.discount {
@@ -783,7 +783,7 @@
     border-radius: 0;
     padding: 10px 12px;
     font-size: 0.95rem;
-    color: #111827;
+    
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
