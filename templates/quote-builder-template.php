@@ -100,7 +100,7 @@ if (!defined('ABSPATH')) {
             </p>
             <div class="navigation-buttons">
                 <button @click="resetServices"
-                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded"
+                        class="  font-medium py-2 px-4 rounded"
                         x-show="selectedServices.length"
                         type="button">
                     Clear Selection
@@ -161,7 +161,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="packageOption.bonusOptions">
                         <div class="mt-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2">
+                            <p class="text-sm font-semibold  mb-2">
                                 Choose up to <span x-text="packageOption.bonusLimit"></span> luxury enhancements
                             </p>
                             <div class="flex flex-wrap gap-2">
@@ -182,7 +182,7 @@ if (!defined('ABSPATH')) {
 
         <div class="navigation-buttons mt-6">
             <button @click="backToServices"
-                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded"
+                    class="  font-medium py-2 px-4 rounded"
                     type="button">
                 Back to Services
             </button>
@@ -255,7 +255,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.extras">
                         <div class="mt-4 border-t pt-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2">Optional extras</p>
+                            <p class="text-sm font-semibold  mb-2">Optional extras</p>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="(price, key) in addOn.extras" :key="key">
                                     <button type="button"
@@ -271,7 +271,7 @@ if (!defined('ABSPATH')) {
 
                     <template x-if="addOn.options">
                         <div class="mt-4 border-t pt-4">
-                            <label class="text-sm font-semibold text-gray-700 mb-2 block">
+                            <label class="text-sm font-semibold  mb-2 block">
                                 Choose an option
                             </label>
                             <select class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded"
@@ -290,7 +290,7 @@ if (!defined('ABSPATH')) {
 
         <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 class="text-lg font-semibold mb-2">Service Summary</h3>
-            <p class="flex justify-between text-sm text-gray-700">
+            <p class="flex justify-between text-sm ">
                 <span>Package</span>
                 <span x-text="formatCurrency(currentPackagePrice)"></span>
             </p>
@@ -313,7 +313,7 @@ if (!defined('ABSPATH')) {
 
         <div class="navigation-buttons mt-6">
             <button @click="backToPackages"
-                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded"
+                    class="  font-medium py-2 px-4 rounded"
                     type="button">
                 Back to Packages
             </button>
@@ -380,12 +380,13 @@ if (!defined('ABSPATH')) {
 
                 <div class="navigation-buttons mt-6">
                     <button @click="returnToLastService"
-                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded"
+                            class="  font-medium py-2 px-4 rounded"
                             type="button">
                         Back to Add-ons
                     </button>
                     <button @click="submitForm"
-                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                            class="text-white font-bold py-2 px-4 rounded"
+                            style="background-color: var(--qb-color);"
                             :disabled="isSubmitting || !isContactValid"
                             type="button">
                         <span x-show="!isSubmitting">Submit Quote Request</span>
