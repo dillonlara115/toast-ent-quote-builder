@@ -15,21 +15,65 @@ if (!defined('ABSPATH')) {
         <div class="quote-main">
     <!-- Step Indicators -->
     <div class="step-indicators">
-        <div class="step-indicator" :class="{ 'active': currentStep === 1, 'completed': currentStep > 1 }">
-            <div class="step-number">1</div>
-            <div class="step-label">Services</div>
+        <div class="step-indicator"
+             :class="{ 'active': currentStep === 1, 'completed': currentStep > 1 }"
+             :aria-current="currentStep === 1 ? 'step' : null">
+            <div class="step-number">
+                <span class="step-index">1</span>
+                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="step-label">
+                Services
+                <span class="visually-hidden" x-show="currentStep > 1" x-cloak>completed</span>
+            </div>
         </div>
-        <div class="step-indicator" :class="{ 'active': currentStep === 2, 'completed': serviceProgressCount > 0 }">
-            <div class="step-number">2</div>
-            <div class="step-label">Packages</div>
+        <div class="step-indicator"
+             :class="{ 'active': currentStep === 2, 'completed': serviceProgressCount > 0 }"
+             :aria-current="currentStep === 2 ? 'step' : null">
+            <div class="step-number">
+                <span class="step-index">2</span>
+                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="step-label">
+                Packages
+                <span class="visually-hidden" x-show="serviceProgressCount > 0" x-cloak>completed</span>
+            </div>
         </div>
-        <div class="step-indicator" :class="{ 'active': currentStep === 3, 'completed': serviceProgressCount > 0 && currentStep > 3 }">
-            <div class="step-number">3</div>
-            <div class="step-label">Add-ons</div>
+        <div class="step-indicator"
+             :class="{ 'active': currentStep === 3, 'completed': serviceProgressCount > 0 && currentStep > 3 }"
+             :aria-current="currentStep === 3 ? 'step' : null">
+            <div class="step-number">
+                <span class="step-index">3</span>
+                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="step-label">
+                Add-ons
+                <span class="visually-hidden" x-show="serviceProgressCount > 0 && currentStep > 3" x-cloak>completed</span>
+            </div>
         </div>
-        <div class="step-indicator" :class="{ 'active': currentStep >= 4 }">
-            <div class="step-number">4</div>
-            <div class="step-label">Review</div>
+        <div class="step-indicator"
+             :class="{ 'active': currentStep >= 4, 'completed': currentStep > 4 }"
+             :aria-current="currentStep >= 4 ? 'step' : null">
+            <div class="step-number">
+                <span class="step-index">4</span>
+                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="step-label">
+                Review
+                <span class="visually-hidden" x-show="currentStep > 4" x-cloak>completed</span>
+            </div>
         </div>
     </div>
 
