@@ -209,7 +209,7 @@
 }
 
 .summary-line.discount {
-    color: #047857;
+    color: #555;
 }
 
 .summary-line.total {
@@ -220,7 +220,7 @@
 .summary-discount-label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #047857;
+    color: #555;
 }
 
 .summary-notes-link {
@@ -735,14 +735,14 @@
 }
 
 .pricing-row.discount {
-    color: #047857;
+    color: #555;
 }
 
 .discount-message {
     margin-top: 8px;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #047857;
+    color: #555;
 }
 
 .review-card {
