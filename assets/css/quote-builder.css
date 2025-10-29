@@ -236,6 +236,48 @@
     color: #555;
 }
 
+.bundle-rewards {
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bundle-rewards-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--qb-color);
+    margin: 0;
+}
+
+.bundle-reward-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bundle-reward-heading {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #333;
+    margin: 0;
+}
+
+.bundle-reward-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.8rem;
+    color: #555;
+    line-height: 1.4;
+}
+
+.bundle-reward-list li {
+    list-style: disc;
+}
+
 .summary-notes-link {
     display: inline-block;
     margin-top: 12px;

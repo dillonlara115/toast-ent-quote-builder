@@ -238,11 +238,72 @@
         }
     };
 
-    const comboRules = [
-        { services: ['djmc', 'photography'], type: 'percent', value: 0.05, label: 'DJ + Photography Combo (5% off)' },
-        { services: ['djmc', 'photography', 'videography'], type: 'percent', value: 0.1, label: 'Dream Wedding Combo (10% off)' },
-        { services: ['djmc', 'photography', 'photobooth'], type: 'flat', value: 150, label: 'DJ + Photo Booth Combo ($150 off)' },
-        { services: ['djmc', 'photography', 'photobooth', 'coordination'], type: 'percent', value: 0.15, label: 'Fairy Tale Combo (15% off)' }
+    const signatureTouches = [
+        'Photo Booth Hours Match Other Service Hours',
+        'Lapel Microphone ($95 value)',
+        'Custom DJ Mashup ($95 value)',
+        'Audio Guestbook Phone ($295 value)',
+        'Glow Sticks ($295 value)',
+        'Photo Booth Guest Album ($125 value)',
+        'Custom Photo Strip Templates ($100 value)'
+    ];
+
+    const luxuryEnhancements = [
+        'Cold Spark Fountains (2 sparks, one use; $595 value)',
+        'Dancing on a Cloud ($595 value)',
+        'Uplighting ($395 value)',
+        'Monogram Projection ($595 value)',
+        'Karaoke Experience ($595 value)',
+        'Love Letters',
+        'Upgraded Backdrops ($495 value)',
+        'Mirror Me or 360 Photo Booth Upgrade'
+    ];
+
+    const rewardCatalog = {
+        signature_touch: {
+            label: 'Signature Touch',
+            pluralLabel: 'Signature Touches',
+            options: signatureTouches
+        },
+        luxury_enhancement: {
+            label: 'Luxury Enhancement',
+            pluralLabel: 'Luxury Enhancements',
+            options: luxuryEnhancements
+        }
+    };
+
+    const bundleDiscounts = [
+        {
+            minServices: 2,
+            discount: 100,
+            description: 'Book Any 2 Services: $100 Off + 1 Free Signature Touch',
+            freebies: [{ type: 'signature_touch', quantity: 1 }]
+        },
+        {
+            minServices: 3,
+            discount: 200,
+            description: 'Book Any 3 Services: $200 Off + 1 Free Luxury Enhancement',
+            freebies: [{ type: 'luxury_enhancement', quantity: 1 }]
+        },
+        {
+            minServices: 4,
+            discount: 300,
+            description: 'Book Any 4 Services: $300 Off + 1 Free Signature Touch + 1 Free Luxury Enhancement',
+            freebies: [
+                { type: 'signature_touch', quantity: 1 },
+                { type: 'luxury_enhancement', quantity: 1 }
+            ]
+        },
+        {
+            minServices: 5,
+            discount: 400,
+            description: 'Book All 5 Services: $400 Off + 2 Signature Touches + 2 Luxury Enhancements',
+            freebies: [
+                { type: 'signature_touch', quantity: 2 },
+                { type: 'luxury_enhancement', quantity: 2 }
+            ],
+            requiresAll: true
+        }
     ];
 
     const formatCurrencyValue = (amount) => {
@@ -430,6 +491,7 @@
             subtotal: 0,
             discount: 0,
             discountLabel: '',
+            bundleRewards: [],
             finalTotal: 0,
             stepError: '',
             serviceProgressCount: 0,
@@ -530,6 +592,7 @@
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
+                this.bundleRewards = [];
                 this.finalTotal = 0;
                 this.stepError = '';
                 this.editingService = false;
@@ -919,27 +982,68 @@
             },
 
             calculateDiscount() {
-                let best = { amount: 0, label: '' };
-                const selected = this.selectedServices;
+                const completedServices = this.orderedServiceSummaries.filter(
+                    (snapshot) => snapshot && snapshot.package
+                );
+                const selectedCount = completedServices.length;
+                const totalServices = Object.keys(quoteData).length;
 
-                comboRules.forEach((rule) => {
-                    const matches = rule.services.every((svc) => selected.includes(svc));
-                    if (!matches) {
+                let best = { amount: 0, label: '', rewards: [] };
+
+                bundleDiscounts.forEach((rule) => {
+                    const meetsRequirement = rule.requiresAll
+                        ? selectedCount === totalServices
+                        : selectedCount >= rule.minServices;
+
+                    if (!meetsRequirement) {
                         return;
                     }
-                    let amount = 0;
-                    if (rule.type === 'percent') {
-                        amount = this.subtotal * rule.value;
-                    } else if (rule.type === 'flat') {
-                        amount = rule.value;
+
+                    const amount = rule.discount || 0;
+                    if (amount <= best.amount) {
+                        return;
                     }
-                    if (amount > best.amount) {
-                        best = { amount, label: rule.label };
-                    }
+
+                    const rewards = (rule.freebies || []).map((freebie) => {
+                        const catalogItem = rewardCatalog[freebie.type] || null;
+                        const quantity = freebie.quantity || 0;
+
+                        if (!catalogItem) {
+                            return {
+                                type: freebie.type,
+                                quantity,
+                                label: '',
+                                quantityText: '',
+                                options: []
+                            };
+                        }
+
+                        const isPlural = quantity !== 1;
+                        const baseLabel = isPlural
+                            ? catalogItem.pluralLabel || `${catalogItem.label}s`
+                            : catalogItem.label;
+
+                        return {
+                            type: freebie.type,
+                            quantity,
+                            label: baseLabel,
+                            quantityText: `${quantity} ${baseLabel}`,
+                            options: Array.isArray(catalogItem.options)
+                                ? catalogItem.options.slice()
+                                : []
+                        };
+                    });
+
+                    best = {
+                        amount,
+                        label: rule.description || '',
+                        rewards
+                    };
                 });
 
                 this.discount = best.amount;
                 this.discountLabel = best.label;
+                this.bundleRewards = best.rewards || [];
             },
 
             editService(serviceId) {
@@ -978,6 +1082,7 @@
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
+                this.bundleRewards = [];
                 this.finalTotal = 0;
                 this.stepError = '';
                 this.editingService = false;
