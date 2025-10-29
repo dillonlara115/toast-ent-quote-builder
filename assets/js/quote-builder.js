@@ -1013,7 +1013,7 @@
                                 type: freebie.type,
                                 quantity,
                                 label: '',
-                                quantityText: '',
+                                quantityText: quantity ? `Choose ${quantity} reward (upon signing)` : '',
                                 options: []
                             };
                         }
@@ -1027,7 +1027,9 @@
                             type: freebie.type,
                             quantity,
                             label: baseLabel,
-                            quantityText: `${quantity} ${baseLabel}`,
+                            quantityText: quantity
+                                ? `Choose ${quantity} ${baseLabel} (upon signing)`
+                                : '',
                             options: Array.isArray(catalogItem.options)
                                 ? catalogItem.options.slice()
                                 : []
