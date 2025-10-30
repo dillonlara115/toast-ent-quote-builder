@@ -263,13 +263,32 @@
         signature_touch: {
             label: 'Signature Touch',
             pluralLabel: 'Signature Touches',
+            optionsHeading: 'Signature Touch Options:',
             options: signatureTouches
         },
         luxury_enhancement: {
             label: 'Luxury Enhancement',
             pluralLabel: 'Luxury Enhancements',
+            optionsHeading: 'Luxury Enhancement Options:',
             options: luxuryEnhancements
         }
+    };
+
+    const numberToWord = (num) => {
+        const map = {
+            0: 'zero',
+            1: 'one',
+            2: 'two',
+            3: 'three',
+            4: 'four',
+            5: 'five',
+            6: 'six',
+            7: 'seven',
+            8: 'eight',
+            9: 'nine',
+            10: 'ten'
+        };
+        return map[num] || String(num);
     };
 
     const bundleDiscounts = [
@@ -1004,7 +1023,18 @@
                         return;
                     }
 
-                    const rewards = (rule.freebies || []).map((freebie) => {
+                    const freebies = Array.isArray(rule.freebies) ? rule.freebies : [];
+                    const typeTotals = freebies.reduce((acc, item) => {
+                        if (!item || !item.type) {
+                            return acc;
+                        }
+                        const key = item.type;
+                        const qty = Number(item.quantity || 0);
+                        acc[key] = (acc[key] || 0) + qty;
+                        return acc;
+                    }, {});
+
+                    const rewards = freebies.map((freebie) => {
                         const catalogItem = rewardCatalog[freebie.type] || null;
                         const quantity = freebie.quantity || 0;
 
@@ -1013,8 +1043,10 @@
                                 type: freebie.type,
                                 quantity,
                                 label: '',
-                                quantityText: quantity ? `Choose ${quantity} reward (upon signing)` : '',
-                                options: []
+                                quantityText: '',
+                                options: [],
+                                headline: '',
+                                subline: ''
                             };
                         }
 
@@ -1023,16 +1055,34 @@
                             ? catalogItem.pluralLabel || `${catalogItem.label}s`
                             : catalogItem.label;
 
+                        const heading = catalogItem.optionsHeading || `${catalogItem.label} Options:`;
+                        const quantityWord = numberToWord(quantity);
+
+                        let headline = '';
+                        let subline = '';
+
+                        if (freebie.type === 'signature_touch') {
+                            headline = `Congratulations! You've earned ${quantityWord} ${baseLabel}!`;
+                            subline = 'Upon signing, select from the Signature Touch list below.';
+                        } else if (freebie.type === 'luxury_enhancement') {
+                            const hasSignature = Boolean(typeTotals.signature_touch);
+                            const prefix = hasSignature
+                                ? 'Great! You also qualify for'
+                                : "Congratulations! You've earned";
+                            headline = `${prefix} ${quantityWord} ${baseLabel}!`;
+                            subline = 'Upon signing, select from the Luxury Enhancement list below.';
+                        }
+
                         return {
                             type: freebie.type,
                             quantity,
                             label: baseLabel,
-                            quantityText: quantity
-                                ? `Choose ${quantity} ${baseLabel} (upon signing)`
-                                : '',
+                            quantityText: heading,
                             options: Array.isArray(catalogItem.options)
                                 ? catalogItem.options.slice()
-                                : []
+                                : [],
+                            headline,
+                            subline
                         };
                     });
 
@@ -1046,39 +1096,6 @@
                 this.discount = best.amount;
                 this.discountLabel = best.label;
                 this.bundleRewards = best.rewards || [];
-            },
-
-            get bundleRewardMessage() {
-                if (!this.bundleRewards.length) {
-                    return '';
-                }
-
-                const parts = this.bundleRewards
-                    .map((reward) => {
-                        const quantity = Number(reward.quantity || 0);
-                        const label = reward.label || '';
-                        if (!quantity || !label) {
-                            return '';
-                        }
-                        return `${quantity} ${label}`;
-                    })
-                    .filter(Boolean);
-
-                if (!parts.length) {
-                    return '';
-                }
-
-                const formatList = (list) => {
-                    if (list.length === 1) {
-                        return list[0];
-                    }
-                    const head = list.slice(0, -1);
-                    const tail = list[list.length - 1];
-                    return `${head.join(', ')} and ${tail}`;
-                };
-
-                const earnedText = formatList(parts);
-                return `Upon signing, select your upgrade from the list below.`;
             },
 
             editService(serviceId) {

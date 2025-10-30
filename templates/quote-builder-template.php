@@ -535,10 +535,13 @@ if (!defined('ABSPATH')) {
                 <p class="summary-discount-label" x-show="discountLabel" x-text="discountLabel"></p>
                 <div class="bundle-rewards" x-show="bundleRewards.length" x-cloak>
                     <p class="bundle-rewards-title">Bundle Rewards</p>
-                    <p class="bundle-rewards-message" x-show="bundleRewardMessage" x-text="bundleRewardMessage"></p>
                     <template x-for="(reward, index) in bundleRewards" :key="reward.type + '-' + index">
                         <div class="bundle-reward-item">
-                            <p class="bundle-reward-heading" x-text="reward.quantityText"></p>
+                            <div class="bundle-reward-copy" x-show="reward.headline || reward.subline">
+                                <p class="bundle-rewards-headline" x-show="reward.headline" x-text="reward.headline"></p>
+                                <p class="bundle-rewards-subline" x-show="reward.subline" x-text="reward.subline"></p>
+                            </div>
+                            <p class="bundle-reward-heading" x-show="reward.quantityText" x-text="reward.quantityText"></p>
                             <template x-if="reward.options.length">
                                 <ul class="bundle-reward-list">
                                     <template x-for="option in reward.options" :key="option">

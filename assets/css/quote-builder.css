@@ -236,14 +236,15 @@
     color: #555;
 }
 
+
 .bundle-rewards {
     border: 1px dashed #d1d5db;
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px;
     background-color: #f9fafb;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .bundle-rewards-title {
@@ -253,8 +254,23 @@
     margin: 0;
 }
 
-.bundle-rewards-message {
+.bundle-reward-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+}
+
+.bundle-rewards-headline {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.bundle-rewards-subline {
     font-size: 0.8rem;
+    font-weight: 400;
     color: #333;
     margin: 0;
 }
@@ -262,12 +278,12 @@
 .bundle-reward-item {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .bundle-reward-heading {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #333;
     margin: 0;
 }
@@ -277,7 +293,7 @@
     padding-left: 18px;
     font-size: 0.8rem;
     color: #555;
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 .bundle-reward-list li {
