@@ -1050,7 +1050,7 @@
 
             get bundleRewardMessage() {
                 if (!this.bundleRewards.length) {
-                    return { headline: '', subline: '' };
+                    return '';
                 }
 
                 const parts = this.bundleRewards
@@ -1065,7 +1065,7 @@
                     .filter(Boolean);
 
                 if (!parts.length) {
-                    return { headline: '', subline: '' };
+                    return '';
                 }
 
                 const formatList = (list) => {
@@ -1078,10 +1078,7 @@
                 };
 
                 const earnedText = formatList(parts);
-                return {
-                    headline: `Congratulations — you've earned ${earnedText}!`,
-                    subline: 'Select your free upgrade upon final booking.'
-                };
+                return `Upon signing, select your upgrade from the list below.`;
             },
 
             editService(serviceId) {
