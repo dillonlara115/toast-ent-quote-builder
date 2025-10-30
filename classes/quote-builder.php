@@ -21,6 +21,8 @@ class teqb_Quote_Builder extends teqb_Base {
         
         // Register shortcode
         add_shortcode('toast_quote_builder', [$this, 'render_quote_builder']);
+        add_shortcode('quote-builder', [$this, 'render_builder_shortcode']);
+        add_shortcode('quote', [$this, 'render_builder_shortcode']); // legacy support
         
         // Register AJAX handlers
         add_action('wp_ajax_submit_quote', [$this, 'handle_quote_submission']);
@@ -108,6 +110,7 @@ class teqb_Quote_Builder extends teqb_Base {
         // Parse shortcode attributes
         $atts = shortcode_atts([
             'location' => 'austin',
+            'builder' => '',
         ], $atts, 'toast_quote_builder');
         
         // Filter for modifying shortcode attributes
@@ -123,6 +126,62 @@ class teqb_Quote_Builder extends teqb_Base {
         
         // Allow filters on the rendered content
         return apply_filters('teqb_template_content', $template_content, $atts);
+    }
+
+    /**
+     * Render alias shortcodes like [quote=builder-slug]
+     */
+    public function render_builder_shortcode($atts) {
+        $builder_slug = $this->extract_builder_slug($atts);
+        if (!$builder_slug) {
+            return '';
+        }
+
+        return $this->render_quote_builder([
+            'builder' => $builder_slug,
+        ]);
+    }
+
+    /**
+     * Normalize shortcode attributes to obtain the builder slug.
+     */
+    protected function extract_builder_slug($atts) {
+        $builder_slug = '';
+
+        if (is_array($atts)) {
+            if (!empty($atts['builder'])) {
+                $builder_slug = $atts['builder'];
+            } elseif (!empty($atts['quote-builder'])) {
+                $builder_slug = $atts['quote-builder'];
+            } elseif (!empty($atts['slug'])) {
+                $builder_slug = $atts['slug'];
+            } elseif (isset($atts[0]) && is_string($atts[0])) {
+                $builder_slug = $atts[0];
+            } else {
+                foreach ($atts as $key => $value) {
+                    if (is_string($key) && $value === '' && strpos($key, 'builder-') === 0) {
+                        $builder_slug = $key;
+                        break;
+                    }
+                    if (is_string($value) && strpos($value, 'builder-') === 0) {
+                        $builder_slug = $value;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!$builder_slug) {
+            return '';
+        }
+
+        $builder_slug = trim($builder_slug);
+
+        if (strpos($builder_slug, 'builder-') === 0) {
+            $builder_slug = substr($builder_slug, strlen('builder-'));
+        }
+
+        return sanitize_title($builder_slug);
     }
     
     /**

@@ -18,6 +18,9 @@ class teqb_Admin {
 		add_action('admin_menu', array($this, 'register_menus'));
 		add_action('admin_init', array($this, 'register_settings'));
 		add_action('add_meta_boxes_teqb_quote', array($this, 'add_quote_metabox'));
+		add_action('add_meta_boxes_teqb_builder', array($this, 'add_builder_metabox'));
+		add_action('save_post_teqb_builder', array($this, 'save_builder_config'), 10, 3);
+		add_action('admin_enqueue_scripts', array($this, 'enqueue_builder_admin_assets'));
 		add_filter('manage_teqb_quote_posts_columns', array($this, 'register_columns'));
 		add_action('manage_teqb_quote_posts_custom_column', array($this, 'render_columns'), 10, 2);
 		add_filter('post_row_actions', array($this, 'row_actions'), 10, 2);
@@ -34,6 +37,23 @@ class teqb_Admin {
 			array($this, 'render_settings_page'),
 			'dashicons-clipboard',
 			58
+		);
+
+		add_submenu_page(
+			'teqb-settings',
+			__('Settings', 'teqb'),
+			__('Settings', 'teqb'),
+			'manage_options',
+			'teqb-settings',
+			array($this, 'render_settings_page')
+		);
+
+		add_submenu_page(
+			'teqb-settings',
+			__('Quote Builders', 'teqb'),
+			__('Quote Builders', 'teqb'),
+			'edit_teqb_builders',
+			'edit.php?post_type=teqb_builder'
 		);
 
 		add_submenu_page(
@@ -96,6 +116,34 @@ class teqb_Admin {
 				submit_button();
 				?>
 			</form>
+		</div>
+		<?php
+	}
+
+	public function add_builder_metabox() {
+		add_meta_box(
+			'teqb-builder-config',
+			__('Builder Configuration', 'teqb'),
+			array($this, 'render_builder_metabox'),
+			'teqb_builder',
+			'normal',
+			'high'
+		);
+	}
+
+	public function render_builder_metabox($post) {
+		wp_nonce_field('teqb_builder_config', 'teqb_builder_config_nonce');
+
+		$config = $this->get_builder_config($post->ID);
+		$json_value = wp_json_encode($config);
+		if (!is_string($json_value)) {
+			$json_value = '';
+		}
+
+		?>
+		<input type="hidden" id="teqb_builder_config" name="teqb_builder_config" value="<?php echo esc_attr($json_value); ?>">
+		<div id="teqb-builder-app" class="teqb-builder-admin-root">
+			<p><?php esc_html_e('Loading builder editor…', 'teqb'); ?></p>
 		</div>
 		<?php
 	}
@@ -221,6 +269,182 @@ class teqb_Admin {
 			</form>
 		</div>
 		<?php
+	}
+
+	public function enqueue_builder_admin_assets($hook) {
+		if (!in_array($hook, array('post.php', 'post-new.php'), true)) {
+			return;
+		}
+
+		$screen = get_current_screen();
+		if (!$screen || $screen->post_type !== 'teqb_builder') {
+			return;
+		}
+
+		$post_id = $this->get_current_builder_post_id();
+		$config = $this->get_builder_config($post_id);
+
+		wp_enqueue_style(
+			'teqb-admin-flowbite',
+			'https://cdn.jsdelivr.net/npm/flowbite@2.2.0/dist/flowbite.min.css',
+			array(),
+			'2.2.0'
+		);
+
+		$css_path = plugin_dir_path(dirname(__FILE__)) . 'assets/css/admin-builder.css';
+		$css_version = file_exists($css_path) ? filemtime($css_path) : $this->config['version'];
+		wp_enqueue_style(
+			'teqb-builder-admin',
+			plugin_dir_url(dirname(__FILE__)) . 'assets/css/admin-builder.css',
+			array('teqb-admin-flowbite'),
+			$css_version
+		);
+
+		$script_path = plugin_dir_path(dirname(__FILE__)) . 'assets/js/admin-builder.js';
+		$script_version = file_exists($script_path) ? filemtime($script_path) : $this->config['version'];
+		wp_enqueue_script(
+			'teqb-builder-admin',
+			plugin_dir_url(dirname(__FILE__)) . 'assets/js/admin-builder.js',
+			array('wp-element', 'wp-components', 'wp-i18n'),
+			$script_version,
+			true
+		);
+
+		wp_localize_script('teqb-builder-admin', 'teqbBuilderAdmin', array(
+			'postId'   => $post_id,
+			'postSlug' => $post_id ? get_post_field('post_name', $post_id) : '',
+			'config'   => $config,
+			'defaults' => $this->default_builder_config(),
+		));
+	}
+
+	public function save_builder_config($post_id, $post, $update) {
+		if (!isset($_POST['teqb_builder_config_nonce']) || !wp_verify_nonce($_POST['teqb_builder_config_nonce'], 'teqb_builder_config')) {
+			return;
+		}
+
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+			return;
+		}
+
+		if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+			return;
+		}
+
+		if (!current_user_can('edit_teqb_builder', $post_id)) {
+			return;
+		}
+
+		$raw = isset($_POST['teqb_builder_config']) ? wp_unslash($_POST['teqb_builder_config']) : '';
+		if ($raw === '') {
+			delete_post_meta($post_id, '_teqb_builder_config');
+			return;
+		}
+
+		$data = json_decode($raw, true);
+		if (!is_array($data)) {
+			return;
+		}
+
+		$sanitized = $this->sanitize_builder_config($data);
+		update_post_meta($post_id, '_teqb_builder_config', wp_json_encode($sanitized));
+	}
+
+	protected function get_builder_config($post_id) {
+		$default = $this->default_builder_config();
+		if (!$post_id) {
+			return $default;
+		}
+
+		$stored = get_post_meta($post_id, '_teqb_builder_config', true);
+		if (empty($stored)) {
+			return $default;
+		}
+
+		$decoded = json_decode($stored, true);
+		if (!is_array($decoded)) {
+			return $default;
+		}
+
+		return array_replace_recursive($default, $decoded);
+	}
+
+	protected function default_builder_config() {
+		return array(
+			'general' => array(
+				'headline'      => '',
+				'subheadline'   => '',
+				'description'   => '',
+				'pricing_note'  => '',
+				'hero_quote'    => array(
+					'text' => '',
+					'attribution' => '',
+				),
+			),
+			'services' => array(),
+			'bundles'  => array(
+				'rules' => array(),
+				'rewards' => array(
+					'signature_touch' => array(
+						'label'        => __('Signature Touch', 'teqb'),
+						'pluralLabel'  => __('Signature Touches', 'teqb'),
+						'optionsLabel' => __('Signature Touch Options', 'teqb'),
+						'options'      => array(),
+					),
+					'luxury_enhancement' => array(
+						'label'        => __('Luxury Enhancement', 'teqb'),
+						'pluralLabel'  => __('Luxury Enhancements', 'teqb'),
+						'optionsLabel' => __('Luxury Enhancement Options', 'teqb'),
+						'options'      => array(),
+					),
+				),
+			),
+			'form' => array(
+				'require_phone'      => true,
+				'require_event_date' => false,
+				'success_message'    => '',
+				'confirmation_copy'  => '',
+			),
+			'notifications' => array(
+				'email' => '',
+			),
+		);
+	}
+
+	protected function sanitize_builder_config($value) {
+		if (is_array($value)) {
+			$sanitized = array();
+			foreach ($value as $key => $item) {
+				$sanitized[$key] = $this->sanitize_builder_config($item);
+			}
+			return $sanitized;
+		}
+
+		if (is_bool($value)) {
+			return $value;
+		}
+
+		if (is_numeric($value)) {
+			return 0 + $value;
+		}
+
+		if (is_string($value)) {
+			return sanitize_textarea_field($value);
+		}
+
+		return '';
+	}
+
+	protected function get_current_builder_post_id() {
+		if (isset($_GET['post'])) {
+			return absint($_GET['post']);
+		}
+
+		if (isset($_POST['post_ID'])) {
+			return absint($_POST['post_ID']);
+		}
+
+		return 0;
 	}
 
 	public function register_columns($columns) {

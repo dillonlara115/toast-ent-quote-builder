@@ -42,12 +42,48 @@ class teqb_Setup extends teqb_Base {
 		
 		// Initialize plugin options
 		$this->initOptions();
+		$this->ensure_builder_caps();
 	}
 
 	/**
 	 * Storing custom options
 	 */
 	public function initOptions() {
+	}
+
+	protected function get_builder_capability_list() {
+		return array(
+			'read_teqb_builder',
+			'read_private_teqb_builders',
+			'edit_teqb_builder',
+			'edit_teqb_builders',
+			'edit_others_teqb_builders',
+			'edit_published_teqb_builders',
+			'edit_private_teqb_builders',
+			'publish_teqb_builders',
+			'delete_teqb_builder',
+			'delete_teqb_builders',
+			'delete_others_teqb_builders',
+			'delete_private_teqb_builders',
+			'delete_published_teqb_builders',
+		);
+	}
+
+	public function ensure_builder_caps() {
+		if (!function_exists('get_role') || !class_exists('WP_Role')) {
+			return;
+		}
+
+		$admin = get_role('administrator');
+		if (!$admin instanceof WP_Role) {
+			return;
+		}
+
+		foreach ($this->get_builder_capability_list() as $capability) {
+			if (!$admin->has_cap($capability)) {
+				$admin->add_cap($capability);
+			}
+		}
 	}
 
 }

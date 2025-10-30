@@ -19,6 +19,7 @@ class teqb_Plugin extends teqb_Setup {
 	}
 
 	public function init() {
+		$this->ensure_builder_caps();
 		// Initialize the Quote Builder
 		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/quote-builder.php';
 		$this->quote_builder = new teqb_Quote_Builder($this->config);
@@ -68,6 +69,43 @@ class teqb_Plugin extends teqb_Setup {
 		);
 
 		register_post_type('teqb_quote', $args);
+
+		$builder_labels = array(
+			'name'                  => __('Quote Builders', 'teqb'),
+			'singular_name'         => __('Quote Builder', 'teqb'),
+			'menu_name'             => __('Quote Builders', 'teqb'),
+			'name_admin_bar'        => __('Quote Builder', 'teqb'),
+			'add_new'               => __('Add New', 'teqb'),
+			'add_new_item'          => __('Add New Quote Builder', 'teqb'),
+			'edit_item'             => __('Edit Quote Builder', 'teqb'),
+			'new_item'              => __('New Quote Builder', 'teqb'),
+			'view_item'             => __('View Quote Builder', 'teqb'),
+			'search_items'          => __('Search Quote Builders', 'teqb'),
+			'not_found'             => __('No quote builders found.', 'teqb'),
+			'not_found_in_trash'    => __('No quote builders found in Trash.', 'teqb'),
+			'all_items'             => __('Quote Builders', 'teqb'),
+			'item_published'        => __('Quote builder saved.', 'teqb'),
+			'item_updated'          => __('Quote builder updated.', 'teqb'),
+		);
+
+		$builder_args = array(
+			'labels'             => $builder_labels,
+			'public'             => false,
+			'exclude_from_search'=> true,
+			'publicly_queryable' => false,
+			'show_ui'            => true,
+			'show_in_menu'       => false,
+			'show_in_admin_bar'  => false,
+			'show_in_nav_menus'  => false,
+			'supports'           => array('title', 'editor'),
+			'capability_type'    => array('teqb_builder', 'teqb_builders'),
+			'map_meta_cap'       => true,
+			'rewrite'            => false,
+			'query_var'          => false,
+			'menu_icon'          => 'dashicons-layout',
+		);
+
+		register_post_type('teqb_builder', $builder_args);
 	}
 	
 	/**

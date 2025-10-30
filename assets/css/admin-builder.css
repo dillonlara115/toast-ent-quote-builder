@@ -1,0 +1,81 @@
+.teqb-builder-admin-root {
+    min-height: 200px;
+}
+
+.teqb-builder-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.teqb-admin-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08);
+}
+
+.teqb-admin-section h2 {
+    font-size: 1.25rem;
+    margin: 0 0 8px;
+    font-weight: 600;
+}
+
+.teqb-admin-section p.section-description {
+    margin: 0 0 16px;
+    color: #64748b;
+}
+
+.teqb-admin-multi {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.teqb-service-card,
+.teqb-nested-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.teqb-nested-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.teqb-inline-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.teqb-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #475569;
+}
+
+.teqb-admin-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    color: #475569;
+}
+
+.teqb-admin-footer code {
+    background: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
