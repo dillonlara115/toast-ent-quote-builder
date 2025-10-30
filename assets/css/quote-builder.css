@@ -253,6 +253,27 @@
     margin: 0;
 }
 
+.bundle-rewards-message {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+}
+
+.bundle-rewards-headline {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.bundle-rewards-subline {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #333;
+    margin: 0;
+}
+
 .bundle-reward-item {
     display: flex;
     flex-direction: column;

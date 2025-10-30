@@ -1048,6 +1048,42 @@
                 this.bundleRewards = best.rewards || [];
             },
 
+            get bundleRewardMessage() {
+                if (!this.bundleRewards.length) {
+                    return { headline: '', subline: '' };
+                }
+
+                const parts = this.bundleRewards
+                    .map((reward) => {
+                        const quantity = Number(reward.quantity || 0);
+                        const label = reward.label || '';
+                        if (!quantity || !label) {
+                            return '';
+                        }
+                        return `${quantity} ${label}`;
+                    })
+                    .filter(Boolean);
+
+                if (!parts.length) {
+                    return { headline: '', subline: '' };
+                }
+
+                const formatList = (list) => {
+                    if (list.length === 1) {
+                        return list[0];
+                    }
+                    const head = list.slice(0, -1);
+                    const tail = list[list.length - 1];
+                    return `${head.join(', ')} and ${tail}`;
+                };
+
+                const earnedText = formatList(parts);
+                return {
+                    headline: `Congratulations — you've earned ${earnedText}!`,
+                    subline: 'Select your free upgrade upon final booking.'
+                };
+            },
+
             editService(serviceId) {
                 const index = this.selectedServices.indexOf(serviceId);
                 if (index === -1) {
