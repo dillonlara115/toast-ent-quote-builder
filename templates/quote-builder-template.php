@@ -46,8 +46,8 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
         <div class="step-indicator"
-             :class="{ 'active': currentStep === 3, 'completed': serviceProgressCount > 0 && currentStep > 3 }"
-             :aria-current="currentStep === 3 ? 'step' : null">
+             :class="{ 'active': currentStep === 3 || currentStep === 4, 'completed': serviceProgressCount > 0 && currentStep >= 5 }"
+             :aria-current="(currentStep === 3 || currentStep === 4) ? 'step' : null">
             <div class="step-number">
                 <span class="step-index">3</span>
                 <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -56,13 +56,13 @@ if (!defined('ABSPATH')) {
                 </svg>
             </div>
             <div class="step-label">
-                Add-ons
-                <span class="visually-hidden" x-show="serviceProgressCount > 0 && currentStep > 3" x-cloak>completed</span>
+                Enhancements &amp; Add-ons
+                <span class="visually-hidden" x-show="serviceProgressCount > 0 && currentStep >= 5" x-cloak>completed</span>
             </div>
         </div>
         <div class="step-indicator"
-             :class="{ 'active': currentStep >= 4, 'completed': currentStep > 4 }"
-             :aria-current="currentStep >= 4 ? 'step' : null">
+             :class="{ 'active': currentStep >= 5, 'completed': currentStep > 5 }"
+             :aria-current="currentStep >= 5 && currentStep < 6 ? 'step' : null">
             <div class="step-number">
                 <span class="step-index">4</span>
                 <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -72,7 +72,7 @@ if (!defined('ABSPATH')) {
             </div>
             <div class="step-label">
                 Review
-                <span class="visually-hidden" x-show="currentStep > 4" x-cloak>completed</span>
+                <span class="visually-hidden" x-show="currentStep > 5" x-cloak>completed</span>
             </div>
         </div>
     </div>
@@ -252,13 +252,84 @@ if (!defined('ABSPATH')) {
                     style="background-color: var(--qb-color);"
                     :disabled="!serviceSelections[currentServiceId].selectedPackage"
                     type="button">
-                Next: Add-ons
+                <span x-text="currentPackageHasUpgradeFlow ? 'Next: Included Enhancements' : 'Next: Add-ons'"></span>
             </button>
         </div>
     </div>
 
-    <!-- Step 3: Add-on Selection -->
-    <div class="form-step" :class="{ 'active': currentStep === 3 }">
+    <!-- Step 3: Included Enhancements -->
+    <div class="form-step" :class="{ 'active': currentStep === 3 }" x-show="upgradeFlowActive">
+        <div class="upgrade-step-panel">
+            <p class="bundled-details-kicker" x-text="upgradeKickerText"></p>
+            <h2 class="bundled-details-title" x-text="upgradeInfoTitle"></h2>
+            <p class="bundled-details-subtitle" x-show="upgradeInfoDescription" x-text="upgradeInfoDescription"></p>
+            <template x-if="upgradeIncludedPackage">
+                <div class="bundled-details-package upgrade-step-package">
+                    <p class="bundled-details-price" x-text="formatCurrency(upgradeIncludedPackage.price)"></p>
+                    <ul class="bundled-details-list" x-show="upgradeIncludedPackage.includes && upgradeIncludedPackage.includes.length">
+                        <template x-for="item in upgradeIncludedPackage.includes" :key="item">
+                            <li x-text="item"></li>
+                        </template>
+                    </ul>
+                    <p class="bundled-details-note">Already included at no additional cost.</p>
+                </div>
+            </template>
+            <template x-if="upgradeInfoLink">
+                <a class="upgrade-step-link" :href="upgradeInfoLink" target="_blank" rel="noopener noreferrer">
+                    Learn more about this experience
+                </a>
+            </template>
+            <template x-if="upgradeUpgradePackages.length">
+                <div class="bundled-upgrades upgrade-step-upgrades">
+                    <h3 class="bundled-upgrades-title">Explore Upgrade Possibilities</h3>
+                    <div class="upgrade-option-grid">
+                        <template x-for="upgrade in upgradeUpgradePackages" :key="upgrade.id">
+                            <button type="button"
+                                    class="upgrade-option-card"
+                                    :class="{ 'selected': isUpgradeSelected(upgrade.id) }"
+                                    @click="selectUpgradePackage(upgrade)">
+                                <div class="upgrade-option-header">
+                                    <h5 x-text="upgrade.name"></h5>
+                                    <span class="upgrade-option-delta"
+                                          x-text="formatCurrency(Math.max(Number(upgrade.price || 0) - (upgradeIncludedPackage ? Number(upgradeIncludedPackage.price || 0) : 0), 0))"></span>
+                                </div>
+                                <p class="upgrade-option-price" x-text="formatCurrency(upgrade.price)"></p>
+                                <ul class="upgrade-option-list" x-show="upgrade.includes && upgrade.includes.length">
+                                    <template x-for="item in upgrade.includes" :key="item">
+                                        <li x-text="item"></li>
+                                    </template>
+                                </ul>
+                                <span class="upgrade-option-status"
+                                      x-text="isUpgradeSelected(upgrade.id) ? 'Selected' : 'Tap to select'"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <button type="button"
+                            class="upgrade-keep-button"
+                            @click="clearUpgradeSelection">
+                        Keep the included option
+                    </button>
+                    <p class="bundled-upgrades-note">Ready for an upgrade? Mention your preferred option when we follow up and we’ll tailor your quote.</p>
+                </div>
+            </template>
+            <div class="upgrade-step-actions">
+                <button type="button"
+                        class="  font-medium py-2 px-4 rounded"
+                        @click="skipUpgradeFlow">
+                    No Thanks
+                </button>
+                <button type="button"
+                        class="text-white font-bold py-2 px-4 rounded"
+                        style="background-color: var(--qb-color);"
+                        @click="completeUpgradeFlow">
+                    Continue to Add-ons
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 4: Add-on Selection -->
+    <div class="form-step" :class="{ 'active': currentStep === 4 }">
         <div class="flex items-center justify-between mb-4">
             <div>
                 <p class="text-sm  font-semibold uppercase tracking-wide">
@@ -366,6 +437,21 @@ if (!defined('ABSPATH')) {
                     <span x-text="formatCurrency(line.total)"></span>
                 </p>
             </template>
+            <template x-if="currentBundleUpgradeLines.length">
+                <div class="current-upgrade-summary">
+                    <template x-for="upgrade in currentBundleUpgradeLines" :key="upgrade.packageId">
+                        <p class="flex justify-between text-sm text-gray-500">
+                            <span>
+                                <span x-text="upgrade.packageName"></span>
+                                <template x-if="upgrade.includedName">
+                                    <span class="block text-xs text-gray-400" x-text="'Replaces ' + upgrade.includedName"></span>
+                                </template>
+                            </span>
+                            <span x-text="upgrade.delta > 0 ? '+ ' + formatCurrency(upgrade.delta) : 'Included'"></span>
+                        </p>
+                    </template>
+                </div>
+            </template>
             <p class="flex justify-between text-base font-semibold text-gray-900 border-t border-gray-200 pt-2 mt-2">
                 <span>Service Subtotal</span>
                 <span x-text="formatCurrency(currentServiceSubtotal)"></span>
@@ -387,8 +473,8 @@ if (!defined('ABSPATH')) {
         </div>
     </div>
 
-    <!-- Step 4: Review & Submit -->
-    <div class="form-step" :class="{ 'active': currentStep === 4 }">
+    <!-- Step 5: Review & Submit -->
+    <div class="form-step" :class="{ 'active': currentStep === 5 }">
         <div class="grid gap-6">
             <div class="space-y-4">
                 <h2 class="text-2xl font-bold mb-3">Tell Us About Your Event</h2>
@@ -462,22 +548,21 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
     </div>
-
-        <!-- Step 5: Success -->
-        <div class="form-step" :class="{ 'active': currentStep === 5 }">
-            <div class="success-message">
-                <div class="success-icon">✓</div>
-                <h2 class="text-2xl font-bold mb-4">Quote Request Submitted!</h2>
-                <p class="mb-6">Thank you, <span x-text="formData.name"></span>! We’re excited to start planning with you. A confirmation email with your quote summary has been sent to <strong x-text="formData.email"></strong>.</p>
-                <button @click="resetAll"
-                        class="text-white font-bold py-2 px-4 rounded">
-                    Build Another Quote
-                </button>
-            </div>
+    <!-- Step 6: Success -->
+    <div class="form-step" :class="{ 'active': currentStep === 6 }">
+        <div class="success-message">
+            <div class="success-icon">✓</div>
+            <h2 class="text-2xl font-bold mb-4">Quote Request Submitted!</h2>
+            <p class="mb-6">Thank you, <span x-text="formData.name"></span>! We’re excited to start planning with you. A confirmation email with your quote summary has been sent to <strong x-text="formData.email"></strong>.</p>
+            <button @click="resetAll"
+                    class="text-white font-bold py-2 px-4 rounded">
+                Build Another Quote
+            </button>
         </div>
-    </div><!-- /.quote-main -->
+    </div>
+</div><!-- /.quote-main -->
 
-        <aside class="quote-sidebar">
+    <aside class="quote-sidebar">
             <h2 class="summary-title">Quote Summary</h2>
             <template x-if="selectedServices.length === 0">
                 <p class="summary-empty-state">
@@ -549,6 +634,21 @@ if (!defined('ABSPATH')) {
                                                     </template>
                                                 </div>
                                                 <span x-text="formatCurrency(addon.total)"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </template>
+                                <template x-if="snapshot.bundleUpgrades && snapshot.bundleUpgrades.length">
+                                    <ul class="summary-upgrades">
+                                        <template x-for="upgrade in snapshot.bundleUpgrades" :key="upgrade.packageId">
+                                            <li class="summary-upgrade-item">
+                                                <div>
+                                                    <span class="summary-upgrade-name" x-text="upgrade.packageName"></span>
+                                                    <template x-if="upgrade.includedName">
+                                                        <span class="summary-upgrade-detail" x-text="'Replaces ' + upgrade.includedName"></span>
+                                                    </template>
+                                                </div>
+                                                <span class="summary-upgrade-price" x-text="upgrade.delta > 0 ? '+ ' + formatCurrency(upgrade.delta) : 'Included'"></span>
                                             </li>
                                         </template>
                                     </ul>

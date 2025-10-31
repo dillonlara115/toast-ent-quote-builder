@@ -350,7 +350,8 @@
     const createEmptySelection = () => ({
         selectedPackage: '',
         selectedBonuses: [],
-        addOns: {}
+        addOns: {},
+        bundleUpgrades: {}
     });
 
     const createInitialSelections = () => {
@@ -578,6 +579,9 @@
             notificationTimers: {},
             showBundledDetailsModal: false,
             activeBundledServiceId: '',
+            upgradeFlowQueue: [],
+            currentUpgradeIndex: 0,
+            currentUpgradeDetail: null,
             stepError: '',
             serviceProgressCount: 0,
             editingService: false,
@@ -634,6 +638,10 @@
                 return this.calculateServiceSubtotal(this.currentServiceId);
             },
 
+            get currentBundleUpgradeLines() {
+                return this.buildUpgradeLines(this.currentServiceId);
+            },
+
             get activeBundledDetail() {
                 if (!this.activeBundledServiceId) {
                     return null;
@@ -655,6 +663,154 @@
                     return [];
                 }
                 return detail.upgradePackages;
+            },
+
+            get upgradeFlowActive() {
+                return Boolean(this.currentUpgradeDetail);
+            },
+
+            get upgradeIncludedPackage() {
+                const detail = this.currentUpgradeDetail;
+                if (!detail || !detail.includedPackage) {
+                    return null;
+                }
+                return detail.includedPackage;
+            },
+
+            get upgradeUpgradePackages() {
+                const detail = this.currentUpgradeDetail;
+                if (!detail || !Array.isArray(detail.upgradePackages)) {
+                    return [];
+                }
+                return detail.upgradePackages;
+            },
+
+            get upgradeInfoTitle() {
+                const detail = this.currentUpgradeDetail;
+                if (!detail) {
+                    return '';
+                }
+                if (detail.infoTitle) {
+                    return detail.infoTitle;
+                }
+                const included = this.upgradeIncludedPackage;
+                if (included) {
+                    return included.name;
+                }
+                return this.getServiceLabel(detail.targetServiceId);
+            },
+
+            get upgradeInfoDescription() {
+                const detail = this.currentUpgradeDetail;
+                return detail ? detail.infoDescription || '' : '';
+            },
+
+            get upgradeInfoLink() {
+                const detail = this.currentUpgradeDetail;
+                return detail ? detail.infoLink || '' : '';
+            },
+
+            get upgradeKickerText() {
+                const detail = this.currentUpgradeDetail;
+                if (!detail) {
+                    return '';
+                }
+                const packageName = detail.sourcePackageName || '';
+                const serviceLabel = detail.sourceServiceLabel || '';
+                if (packageName && serviceLabel) {
+                    return `Included with your ${packageName} ${serviceLabel} package`;
+                }
+                return 'Included in your selection';
+            },
+
+            get currentPackageHasUpgradeFlow() {
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return false;
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.selectedPackage) {
+                    return false;
+                }
+                const details = this.collectUpgradeFlowDetails(serviceId);
+                return details.length > 0;
+            },
+
+            getStoredUpgrade(detail) {
+                if (!detail) {
+                    return null;
+                }
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return null;
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.bundleUpgrades) {
+                    return null;
+                }
+                return selection.bundleUpgrades[detail.targetServiceId] || null;
+            },
+
+            isUpgradeSelected(packageId) {
+                if (!this.currentUpgradeDetail || !packageId) {
+                    return false;
+                }
+                const stored = this.getStoredUpgrade(this.currentUpgradeDetail);
+                return stored ? stored.packageId === packageId : false;
+            },
+
+            selectUpgradePackage(upgrade) {
+                if (!this.currentUpgradeDetail || !upgrade) {
+                    return;
+                }
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return;
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection) {
+                    return;
+                }
+
+                const detail = this.currentUpgradeDetail;
+                const includedPrice = detail.includedPackage ? Number(detail.includedPackage.price || 0) : 0;
+                const upgradePrice = Number(upgrade.price || 0);
+                const delta = Math.max(upgradePrice - includedPrice, 0);
+
+                selection.bundleUpgrades = selection.bundleUpgrades || {};
+                const current = selection.bundleUpgrades[detail.targetServiceId] || null;
+                if (current && current.packageId === upgrade.id) {
+                    delete selection.bundleUpgrades[detail.targetServiceId];
+                    this.recalculateTotals();
+                    return;
+                }
+                selection.bundleUpgrades[detail.targetServiceId] = {
+                    packageId: upgrade.id,
+                    packageName: upgrade.name,
+                    upgradePrice,
+                    includedPrice,
+                    delta,
+                    serviceLabel: detail.sourceServiceLabel,
+                    includedName: detail.includedPackage ? detail.includedPackage.name : '',
+                    upgradeServiceId: detail.targetServiceId
+                };
+                this.recalculateTotals();
+            },
+
+            clearUpgradeSelection() {
+                if (!this.currentUpgradeDetail) {
+                    return;
+                }
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return;
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.bundleUpgrades) {
+                    return;
+                }
+                delete selection.bundleUpgrades[this.currentUpgradeDetail.targetServiceId];
+                this.recalculateTotals();
             },
 
             get serviceProgress() {
@@ -747,6 +903,7 @@
                 if (!serviceId) {
                     return;
                 }
+                this.resetUpgradeFlow();
                 const index = this.selectedServices.indexOf(serviceId);
                 if (index !== -1) {
                     this.selectedServices.splice(index, 1);
@@ -959,6 +1116,91 @@
                 }));
             },
 
+            collectUpgradeFlowDetails(serviceId) {
+                const packageDef = this.getSelectedPackageForService(serviceId);
+                if (!packageDef) {
+                    return [];
+                }
+                const details = this.getBundledServiceDetails(serviceId, packageDef);
+                return details.filter(
+                    (detail) => Array.isArray(detail.upgradePackages) && detail.upgradePackages.length
+                );
+            },
+
+            resetUpgradeFlow() {
+                this.upgradeFlowQueue = [];
+                this.currentUpgradeIndex = 0;
+                this.currentUpgradeDetail = null;
+            },
+
+            clearRemainingUpgradeSelections() {
+                if (!this.upgradeFlowQueue.length) {
+                    return;
+                }
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return;
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.bundleUpgrades) {
+                    return;
+                }
+                this.upgradeFlowQueue.slice(this.currentUpgradeIndex).forEach((detail) => {
+                    if (detail && detail.targetServiceId) {
+                        delete selection.bundleUpgrades[detail.targetServiceId];
+                    }
+                });
+                this.recalculateTotals();
+            },
+
+            setCurrentUpgradeDetail(detail) {
+                this.currentUpgradeDetail = detail || null;
+            },
+
+            maybeStartUpgradeFlow() {
+                const serviceId = this.currentServiceId;
+                if (!serviceId) {
+                    return false;
+                }
+                const queue = this.collectUpgradeFlowDetails(serviceId);
+                if (!queue.length) {
+                    this.resetUpgradeFlow();
+                    return false;
+                }
+                this.upgradeFlowQueue = queue;
+                this.currentUpgradeIndex = 0;
+                this.setCurrentUpgradeDetail(queue[0]);
+                this.currentStep = 3;
+                this.stepError = '';
+                this.scrollToBuilderTop();
+                return true;
+            },
+
+            advanceUpgradeFlow() {
+                this.currentUpgradeIndex += 1;
+                if (this.currentUpgradeIndex < this.upgradeFlowQueue.length) {
+                    this.setCurrentUpgradeDetail(this.upgradeFlowQueue[this.currentUpgradeIndex]);
+                    this.scrollToBuilderTop();
+                } else {
+                    this.resetUpgradeFlow();
+                    this.currentStep = 4;
+                    this.stepError = '';
+                    this.scrollToBuilderTop();
+                }
+            },
+
+            completeUpgradeFlow() {
+                this.advanceUpgradeFlow();
+            },
+
+            skipUpgradeFlow() {
+                this.clearRemainingUpgradeSelections();
+                this.resetUpgradeFlow();
+                this.currentStep = 4;
+                this.stepError = '';
+                this.scrollToBuilderTop();
+            },
+
             computeServiceLocks() {
                 const locks = {};
                 this.selectedServices.forEach((serviceId) => {
@@ -1037,6 +1279,7 @@
                 this.lockedServices = [];
                 this.clearServiceNotifications();
                 this.closeBundledServiceDetails();
+                this.resetUpgradeFlow();
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
@@ -1089,6 +1332,7 @@
                 if (!this.currentServiceId) {
                     return;
                 }
+                this.resetUpgradeFlow();
                 const selection = this.serviceSelections[this.currentServiceId];
                 selection.selectedPackage = packageOption.id;
                 selection.selectedBonuses = selection.selectedBonuses.slice(0, packageOption.bonusLimit || 0);
@@ -1101,6 +1345,7 @@
             },
 
             backToServices() {
+                this.resetUpgradeFlow();
                 this.currentStep = 1;
                 this.stepError = '';
             },
@@ -1111,12 +1356,16 @@
                     this.stepError = 'Please select a package to continue.';
                     return;
                 }
-                this.currentStep = 3;
+                if (this.maybeStartUpgradeFlow()) {
+                    return;
+                }
+                this.currentStep = 4;
                 this.stepError = '';
                 this.scrollToBuilderTop();
             },
 
             backToPackages() {
+                this.resetUpgradeFlow();
                 this.currentStep = 2;
                 this.stepError = '';
             },
@@ -1314,6 +1563,35 @@
                 return lines;
             },
 
+            buildUpgradeLines(serviceId) {
+                if (!serviceId) {
+                    return [];
+                }
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.bundleUpgrades) {
+                    return [];
+                }
+
+                return Object.values(selection.bundleUpgrades)
+                    .map((entry) => {
+                        if (!entry || !entry.packageId) {
+                            return null;
+                        }
+                        const delta = typeof entry.delta === 'number' ? entry.delta : 0;
+                        return {
+                            packageId: entry.packageId,
+                            packageName: entry.packageName || '',
+                            includedName: entry.includedName || '',
+                            serviceLabel: entry.serviceLabel || '',
+                            delta,
+                            upgradePrice: entry.upgradePrice || 0,
+                            includedPrice: entry.includedPrice || 0,
+                            upgradeServiceId: entry.upgradeServiceId || ''
+                        };
+                    })
+                    .filter(Boolean);
+            },
+
             calculateServiceSubtotal(serviceId) {
                 if (!serviceId) {
                     return 0;
@@ -1321,7 +1599,19 @@
                 const pkg = this.getSelectedPackageForService(serviceId);
                 const packagePrice = pkg ? pkg.price : 0;
                 const addOnTotal = this.buildAddOnLines(serviceId).reduce((sum, line) => sum + line.total, 0);
-                return packagePrice + addOnTotal;
+                const upgradeTotal = this.calculateUpgradeTotal(serviceId);
+                return packagePrice + addOnTotal + upgradeTotal;
+            },
+
+            calculateUpgradeTotal(serviceId) {
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.bundleUpgrades) {
+                    return 0;
+                }
+                return Object.values(selection.bundleUpgrades).reduce((sum, entry) => {
+                    const delta = entry && typeof entry.delta === 'number' ? entry.delta : 0;
+                    return sum + Math.max(delta, 0);
+                }, 0);
             },
 
             getServiceSnapshot(serviceId) {
@@ -1351,6 +1641,7 @@
                 }
 
                 const addOns = this.buildAddOnLines(serviceId);
+                const bundleUpgrades = this.buildUpgradeLines(serviceId);
                 const subtotal = this.calculateServiceSubtotal(serviceId);
 
                 return {
@@ -1364,6 +1655,7 @@
                         bonuses: selection.selectedBonuses.slice()
                     },
                     addOns,
+                    bundleUpgrades,
                     subtotal,
                     inProgress: !this.serviceSummaries[serviceId]
                 };
@@ -1387,10 +1679,11 @@
                 }
 
                 this.recalculateTotals();
+                this.resetUpgradeFlow();
 
                 if (this.editingService) {
                     this.editingService = false;
-                    this.currentStep = 4;
+                    this.currentStep = 5;
                     this.stepError = '';
                     this.scrollToBuilderTop();
                     return;
@@ -1412,7 +1705,8 @@
             finishQuote() {
                 this.recalculateTotals();
                 this.editingService = false;
-                this.currentStep = 4;
+                this.resetUpgradeFlow();
+                this.currentStep = 5;
                 this.scrollToBuilderTop();
             },
 
@@ -1542,6 +1836,7 @@
                     delete this.serviceSummaries[serviceId];
                 }
                 this.currentServiceIndex = index;
+                this.resetUpgradeFlow();
                 this.currentStep = 2;
                 this.stepError = '';
                 this.recalculateTotals();
@@ -1553,7 +1848,8 @@
                 }
                 this.editingService = true;
                 this.currentServiceIndex = this.selectedServices.length - 1;
-                this.currentStep = 3;
+                this.resetUpgradeFlow();
+                this.currentStep = 4;
                 this.stepError = '';
                 this.recalculateTotals();
             },
@@ -1569,6 +1865,7 @@
                 this.lockedServices = [];
                 this.clearServiceNotifications();
                 this.closeBundledServiceDetails();
+                this.resetUpgradeFlow();
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
@@ -1613,6 +1910,7 @@
                         serviceLabel: snapshot.serviceLabel,
                         package: snapshot.package,
                         addOns: snapshot.addOns,
+                        bundleUpgrades: snapshot.bundleUpgrades || [],
                         subtotal: snapshot.subtotal
                     }));
 
@@ -1644,7 +1942,7 @@
                         if (response.success) {
                             this.submitSuccess = true;
                             this.submitMessage = response.data.message;
-                            this.currentStep = 5;
+                            this.currentStep = 6;
                         } else {
                             this.submitSuccess = false;
                             this.submitMessage = response.data.message || 'An error occurred. Please try again.';

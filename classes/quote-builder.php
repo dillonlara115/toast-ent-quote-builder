@@ -348,6 +348,40 @@ class teqb_Quote_Builder extends teqb_Base {
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
+                    <?php if (!empty($service['bundleUpgrades'])) : ?>
+                        <p style="margin: 0 0 6px;"><strong>Upgrades:</strong></p>
+                        <ul style="margin: 0 0 12px 18px; padding: 0;">
+                            <?php foreach ($service['bundleUpgrades'] as $upgrade) : ?>
+                                <?php $delta = isset($upgrade['delta']) ? max(0, floatval($upgrade['delta'])) : 0; ?>
+                                <li>
+                                    <?php echo esc_html($upgrade['packageName']); ?>
+                                    <?php if (!empty($upgrade['includedName'])) : ?>
+                                        <br><small>Replaces: <?php echo esc_html($upgrade['includedName']); ?></small>
+                                    <?php endif; ?>
+                                    <br><strong>
+                                        <?php echo $delta > 0 ? $this->format_currency($delta) : 'Included'; ?>
+                                    </strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                    <?php if (!empty($service['bundleUpgrades'])) : ?>
+                        <p style="margin: 0 0 6px;"><strong>Upgrades:</strong></p>
+                        <ul style="margin: 0 0 12px 18px; padding: 0;">
+                            <?php foreach ($service['bundleUpgrades'] as $upgrade) : ?>
+                                <?php $delta = isset($upgrade['delta']) ? max(0, floatval($upgrade['delta'])) : 0; ?>
+                                <li>
+                                    <?php echo esc_html($upgrade['packageName']); ?>
+                                    <?php if (!empty($upgrade['includedName'])) : ?>
+                                        <br><small>Replaces: <?php echo esc_html($upgrade['includedName']); ?></small>
+                                    <?php endif; ?>
+                                    <br><strong>
+                                        <?php echo $delta > 0 ? $this->format_currency($delta) : 'Included'; ?>
+                                    </strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
                     <p style="margin: 0;"><strong>Service Subtotal:</strong> <?php echo $this->format_currency($service['subtotal']); ?></p>
                 </div>
             <?php endforeach; ?>
@@ -538,6 +572,26 @@ class teqb_Quote_Builder extends teqb_Base {
                 }
             }
 
+            $bundle_upgrades = [];
+            if (!empty($service['bundleUpgrades']) && is_array($service['bundleUpgrades'])) {
+                foreach ($service['bundleUpgrades'] as $upgrade) {
+                    if (empty($upgrade['packageId'])) {
+                        continue;
+                    }
+
+                    $bundle_upgrades[] = [
+                        'packageId' => sanitize_text_field($upgrade['packageId']),
+                        'packageName' => sanitize_text_field($upgrade['packageName'] ?? ''),
+                        'includedName' => sanitize_text_field($upgrade['includedName'] ?? ''),
+                        'delta' => isset($upgrade['delta']) ? floatval($upgrade['delta']) : 0,
+                        'includedPrice' => isset($upgrade['includedPrice']) ? floatval($upgrade['includedPrice']) : 0,
+                        'upgradePrice' => isset($upgrade['upgradePrice']) ? floatval($upgrade['upgradePrice']) : 0,
+                        'upgradeServiceId' => sanitize_text_field($upgrade['upgradeServiceId'] ?? ''),
+                        'serviceLabel' => sanitize_text_field($upgrade['serviceLabel'] ?? ''),
+                    ];
+                }
+            }
+
             $sanitized[] = [
                 'serviceId' => sanitize_text_field($service['serviceId']),
                 'serviceLabel' => sanitize_text_field($service['serviceLabel'] ?? ''),
@@ -549,7 +603,8 @@ class teqb_Quote_Builder extends teqb_Base {
                     'bonuses' => $package_bonuses,
                 ],
                 'addOns' => $add_ons,
-                    'subtotal' => isset($service['subtotal']) ? floatval($service['subtotal']) : 0,
+                'bundleUpgrades' => $bundle_upgrades,
+                'subtotal' => isset($service['subtotal']) ? floatval($service['subtotal']) : 0,
             ];
         }
 
