@@ -52,6 +52,10 @@
 .toast-quote-builder textarea {
     border-radius: 0;
 }
+
+.toast-quote-builder select {
+    height: auto !important;
+}
 .toast-quote-builder h2,
 .toast-quote-builder h3,
 .toast-quote-builder h4,
