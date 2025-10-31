@@ -91,7 +91,10 @@ if (!defined('ABSPATH')) {
             <template x-for="service in availableServices" :key="service.id">
                 <button type="button"
                         class="service-card"
-                        :class="{ 'selected': selectedServices.includes(service.id) }"
+                        :class="{ 'selected': selectedServices.includes(service.id), 'locked': isServiceLocked(service.id) }"
+                        :disabled="isServiceLocked(service.id)"
+                        :aria-disabled="isServiceLocked(service.id) ? 'true' : null"
+                        :title="isServiceLocked(service.id) ? getServiceLockMessage(service.id) : null"
                         @click="toggleService(service.id)">
                     <div class="service-card-banner">
                         <div>
@@ -124,7 +127,7 @@ if (!defined('ABSPATH')) {
                             </div>
                         </template>
                     </div>
-                    <div class="service-card-footer">
+                    <div class="service-card-footer" :class="{ 'locked': isServiceLocked(service.id) }">
                         <span class="select-indicator" :class="{ 'active': selectedServices.includes(service.id) }">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
                                  viewBox="0 0 24 24" stroke="currentColor">
@@ -132,6 +135,20 @@ if (!defined('ABSPATH')) {
                                       d="M5 13l4 4L19 7"/>
                             </svg>
                         </span>
+                        <template x-if="isServiceLocked(service.id)">
+                            <div class="service-card-locked-note">
+                                <span x-text="getServiceLockMessage(service.id)"></span>
+                                <span class="service-card-locked-link"
+                                      role="button"
+                                      tabindex="0"
+                                      x-show="hasBundledServiceDetails(service.id)"
+                                      @click.stop="openBundledServiceDetails(service.id)"
+                                      @keydown.enter.stop.prevent="openBundledServiceDetails(service.id)"
+                                      @keydown.space.stop.prevent="openBundledServiceDetails(service.id)">
+                                    View included details
+                                </span>
+                            </div>
+                        </template>
                     </div>
                 </button>
             </template>
@@ -467,6 +484,33 @@ if (!defined('ABSPATH')) {
                     Select a service to start building your quote. Your selections will appear here with live pricing.
                 </p>
             </template>
+            <div class="summary-service-alerts" x-show="serviceNotifications.length" x-cloak>
+                <template x-for="note in serviceNotifications" :key="note.id">
+                    <div class="summary-service-alert"
+                         x-transition:enter="fade-slide-enter"
+                         x-transition:enter-start="fade-slide-enter-start"
+                         x-transition:enter-end="fade-slide-enter-end"
+                         x-transition:leave="fade-slide-leave"
+                         x-transition:leave-start="fade-slide-leave-start"
+                         x-transition:leave-end="fade-slide-leave-end">
+                        <div>
+                            <p class="summary-service-alert-message" x-text="note.message"></p>
+                            <button type="button"
+                                    class="summary-service-alert-link"
+                                    x-show="note.serviceId"
+                                    @click="openBundledServiceDetails(note.serviceId)">
+                                View included details
+                            </button>
+                        </div>
+                        <button type="button"
+                                class="summary-service-alert-dismiss"
+                                @click="dismissServiceNotification(note.id)"
+                                aria-label="Dismiss notice">
+                            &times;
+                        </button>
+                    </div>
+                </template>
+            </div>
             <div class="summary-services" x-show="selectedServices.length">
                 <template x-for="serviceId in selectedServices" :key="serviceId">
                     <div class="summary-service"
@@ -563,6 +607,61 @@ if (!defined('ABSPATH')) {
         </aside>
     </div><!-- /.quote-layout -->
 
+    <div x-show="showBundledDetailsModal"
+         x-cloak
+         class="bundled-details-overlay"
+         @keydown.escape.window="closeBundledServiceDetails()">
+        <div class="bundled-details-modal" role="dialog" aria-modal="true">
+            <button type="button" class="bundled-details-close" @click="closeBundledServiceDetails()" aria-label="Close">
+                &times;
+            </button>
+            <template x-if="activeBundledDetail">
+                <div>
+                    <p class="bundled-details-kicker"
+                       x-text="'Included with your ' + activeBundledDetail.sourcePackageName + ' ' + activeBundledDetail.sourceServiceLabel + ' package'"></p>
+                    <h3 class="bundled-details-title"
+                        x-text="activeBundledDetail.infoTitle ? activeBundledDetail.infoTitle : (activeBundledIncludedPackage ? activeBundledIncludedPackage.name : getServiceLabel(activeBundledServiceId))"></h3>
+                    <p class="bundled-details-subtitle"
+                       x-show="activeBundledDetail.infoDescription"
+                       x-text="activeBundledDetail.infoDescription"></p>
+
+                    <template x-if="activeBundledIncludedPackage">
+                        <div class="bundled-details-package">
+                            <p class="bundled-details-price" x-text="formatCurrency(activeBundledIncludedPackage.price)"></p>
+                            <ul class="bundled-details-list" x-show="activeBundledIncludedPackage.includes && activeBundledIncludedPackage.includes.length">
+                                <template x-for="item in activeBundledIncludedPackage.includes" :key="item">
+                                    <li x-text="item"></li>
+                                </template>
+                            </ul>
+                            <p class="bundled-details-note">Already included at no additional cost.</p>
+                        </div>
+                    </template>
+
+                    <template x-if="activeBundledUpgradePackages.length">
+                        <div class="bundled-upgrades">
+                            <h4 class="bundled-upgrades-title">Upgrade Possibilities</h4>
+                            <div class="bundled-upgrade-grid">
+                                <template x-for="upgrade in activeBundledUpgradePackages" :key="upgrade.id">
+                                    <div class="bundled-upgrade-card">
+                                        <h5 x-text="upgrade.name"></h5>
+                                        <p class="bundled-upgrade-price" x-text="formatCurrency(upgrade.price)"></p>
+                                        <ul class="bundled-upgrade-list" x-show="upgrade.includes && upgrade.includes.length">
+                                            <template x-for="item in upgrade.includes" :key="item">
+                                                <li x-text="item"></li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                            </div>
+                            <p class="bundled-upgrades-note">Interested in an upgrade? Mention your preferred booth when we follow up and we’ll tailor your quote.</p>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+        <div class="bundled-details-backdrop" @click="closeBundledServiceDetails()"></div>
+    </div>
+
     <div x-show="showPricingNotes" x-cloak class="pricing-notes-overlay" @keydown.escape.window="showPricingNotes = false">
         <div class="pricing-notes-modal" role="dialog" aria-modal="true" aria-labelledby="pricing-notes-title">
             <button type="button" class="pricing-notes-close" @click="showPricingNotes = false" aria-label="Close">
@@ -571,6 +670,7 @@ if (!defined('ABSPATH')) {
             <h3 class="pricing-notes-kicker"><?php esc_html_e('Build a Quote', 'teqb'); ?></h3>
             <h2 class="pricing-notes-title" id="pricing-notes-title"><?php esc_html_e('Some Notes on Pricing', 'teqb'); ?></h2>
             <div class="pricing-notes-content">
+                <p>The total shown in your instant quote is an initial estimate. Once we review your event details, your final proposal may include applicable travel fees, peak date adjustments, and state/local sales tax. We’ll confirm all pricing and details with you before finalizing your booking.</p>
                 <p>If you do not see a package that works for you, please contact us and we would be happy to arrange a package more closely suited to your needs and budget!</p>
                 <p>All applicable taxes are already included in the price listed. Peak dates may affect pricing.</p>
                 <p>For Saturday events in March, April, May, September, November, and December, please add $100 to the package price. For Saturday events in October, please add $200 to the package price.</p>

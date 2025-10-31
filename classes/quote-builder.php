@@ -213,6 +213,10 @@ class teqb_Quote_Builder extends teqb_Base {
             wp_send_json_error(['message' => 'Please select at least one service to continue.']);
         }
 
+        $bundle_rewards_raw = wp_unslash($_POST['bundle_rewards'] ?? '[]');
+        $bundle_rewards_decoded = json_decode($bundle_rewards_raw, true);
+        $bundle_rewards = $this->sanitize_bundle_rewards($bundle_rewards_decoded);
+
         $subtotal       = floatval($_POST['subtotal'] ?? 0);
         $discount       = floatval($_POST['discount'] ?? 0);
         $discount_label = sanitize_text_field(wp_unslash($_POST['discount_label'] ?? ''));
@@ -232,6 +236,7 @@ class teqb_Quote_Builder extends teqb_Base {
             'discount_label' => $discount_label,
             'final_total' => $final_total,
             'message' => $message,
+            'bundle_rewards' => $bundle_rewards,
         ]);
         
         // Extract filtered data
@@ -362,6 +367,22 @@ class teqb_Quote_Builder extends teqb_Base {
                 <h3 style="color: #555; margin-top: 24px;">Client Message</h3>
                 <p><?php echo nl2br(esc_html($data['message'])); ?></p>
             <?php endif; ?>
+        <h3 style="color: #555; margin-top: 32px;">Details &amp; Pricing Notes</h3>
+        <h5 style="color: #222; margin: 3px 0 12px 0; font-size: 15px;">Some Notes on Pricing</h5>
+        <ul style="margin: 0 0 18px 22px; padding: 0 0 0 0; color: #444; font-size: 15px;">
+            <li style="margin-bottom: 10px;">
+                If you do not see a package that works for you, please contact us and we would be happy to arrange a package more closely suited to your needs and budget!
+            </li>
+            <li style="margin-bottom: 10px;">
+                All applicable taxes are already included in the price listed. Peak dates may affect pricing.
+            </li>
+            <li style="margin-bottom: 10px;">
+                For Saturday events in March, April, May, September, November, and December, please add $100 to the package price. For Saturday events in October, please add $200 to the package price.
+            </li>
+            <li>
+                National holiday rates may differ. Please inquire for accurate quote.
+            </li>
+        </ul>
         </body>
         </html>
         <?php
@@ -373,6 +394,7 @@ class teqb_Quote_Builder extends teqb_Base {
      */
     private function generate_customer_email_html($data) {
         $services = $data['services'];
+        $bundle_rewards = isset($data['bundle_rewards']) && is_array($data['bundle_rewards']) ? $data['bundle_rewards'] : [];
         ob_start();
         ?>
         <html>
@@ -425,6 +447,31 @@ class teqb_Quote_Builder extends teqb_Base {
                         <br><small><?php echo esc_html($data['discount_label']); ?></small>
                     <?php endif; ?>
                 </p>
+            <?php endif; ?>
+            <?php if (!empty($bundle_rewards)) : ?>
+                <div style="border: 1px solid #fcd34d; background-color: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                    <p style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #d97706;">Bundle Rewards</p>
+                    <?php foreach ($bundle_rewards as $reward) : ?>
+                        <div style="margin-bottom: 16px;">
+                            <?php if (!empty($reward['headline'])) : ?>
+                                <p style="margin: 0 0 4px; font-weight: 600; color: #1f2937;"><?php echo esc_html($reward['headline']); ?></p>
+                            <?php endif; ?>
+                            <?php if (!empty($reward['subline'])) : ?>
+                                <p style="margin: 0 0 8px; color: #4b5563;"><?php echo esc_html($reward['subline']); ?></p>
+                            <?php endif; ?>
+                            <?php if (!empty($reward['quantityText'])) : ?>
+                                <p style="margin: 0 0 6px; font-weight: 600; color: #1f2937;"><?php echo esc_html($reward['quantityText']); ?></p>
+                            <?php endif; ?>
+                            <?php if (!empty($reward['options'])) : ?>
+                                <ul style="margin: 0 0 12px 18px; padding: 0; color: #1f2937;">
+                                    <?php foreach ($reward['options'] as $option) : ?>
+                                        <li style="margin: 0 0 4px;"><?php echo esc_html($option); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
             <p><strong>Estimated Total:</strong> <?php echo $this->format_currency($data['final_total']); ?></p>
 
@@ -510,6 +557,52 @@ class teqb_Quote_Builder extends teqb_Base {
     }
 
     /**
+     * Sanitize bundle rewards payload from the front-end.
+     *
+     * @param mixed $rewards
+     * @return array
+     */
+    private function sanitize_bundle_rewards($rewards) {
+        $sanitized = [];
+
+        if (!is_array($rewards)) {
+            return $sanitized;
+        }
+
+        foreach ($rewards as $reward) {
+            if (!is_array($reward)) {
+                continue;
+            }
+
+            $type = isset($reward['type']) ? sanitize_text_field($reward['type']) : '';
+            $quantity = isset($reward['quantity']) ? intval($reward['quantity']) : 0;
+            $label = isset($reward['label']) ? sanitize_text_field($reward['label']) : '';
+            $quantity_text = isset($reward['quantityText']) ? sanitize_text_field($reward['quantityText']) : '';
+            $headline = isset($reward['headline']) ? sanitize_text_field($reward['headline']) : '';
+            $subline = isset($reward['subline']) ? sanitize_text_field($reward['subline']) : '';
+
+            $options = [];
+            if (!empty($reward['options']) && is_array($reward['options'])) {
+                foreach ($reward['options'] as $option) {
+                    $options[] = sanitize_text_field($option);
+                }
+            }
+
+            $sanitized[] = [
+                'type' => $type,
+                'quantity' => $quantity,
+                'label' => $label,
+                'quantityText' => $quantity_text,
+                'headline' => $headline,
+                'subline' => $subline,
+                'options' => $options,
+            ];
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Persist the submitted quote to the database.
      */
     private function store_quote_entry($data) {
@@ -542,6 +635,7 @@ class teqb_Quote_Builder extends teqb_Base {
         update_post_meta($post_id, '_teqb_quote_discount', $data['discount']);
         update_post_meta($post_id, '_teqb_quote_discount_label', $data['discount_label']);
         update_post_meta($post_id, '_teqb_quote_final_total', $data['final_total']);
+        update_post_meta($post_id, '_teqb_quote_bundle_rewards', isset($data['bundle_rewards']) ? $data['bundle_rewards'] : []);
 
         return $post_id;
     }
@@ -648,6 +742,11 @@ class teqb_Quote_Builder extends teqb_Base {
             $services = array();
         }
 
+        $bundle_rewards = get_post_meta($entry_id, '_teqb_quote_bundle_rewards', true);
+        if (!is_array($bundle_rewards)) {
+            $bundle_rewards = array();
+        }
+
         return array(
             'name'           => get_post_meta($entry_id, '_teqb_quote_name', true),
             'email'          => get_post_meta($entry_id, '_teqb_quote_email', true),
@@ -661,6 +760,7 @@ class teqb_Quote_Builder extends teqb_Base {
             'discount'       => floatval(get_post_meta($entry_id, '_teqb_quote_discount', true)),
             'discount_label' => get_post_meta($entry_id, '_teqb_quote_discount_label', true),
             'final_total'    => floatval(get_post_meta($entry_id, '_teqb_quote_final_total', true)),
+            'bundle_rewards' => $bundle_rewards,
         );
     }
 

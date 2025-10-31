@@ -103,6 +103,90 @@
     line-height: 1.5;
 }
 
+.summary-service-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.summary-service-alert {
+    position: relative;
+    padding: 14px 40px 14px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: #fef2f2;
+    box-shadow: 0 8px 18px rgba(239, 68, 68, 0.08);
+    color: #b91c1c;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.summary-service-alert > div {
+    flex: 1;
+}
+
+.summary-service-alert-message {
+    margin: 0;
+}
+
+.summary-service-alert-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #b45309;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.summary-service-alert-link:hover,
+.summary-service-alert-link:focus {
+    color: #92400e;
+    outline: none;
+}
+
+.summary-service-alert-dismiss {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 4px 6px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.summary-service-alert-dismiss:hover {
+    color: #7f1d1d;
+}
+
+.fade-slide-enter,
+.fade-slide-leave {
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.fade-slide-enter-start,
+.fade-slide-leave-end {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.fade-slide-enter-end,
+.fade-slide-leave-start {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .summary-services {
     display: flex;
     flex-direction: column;
@@ -583,6 +667,27 @@
     box-shadow: 0 16px 32px rgba(30, 64, 175, 0.16);
 }
 
+.service-card.locked,
+.service-card:disabled {
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.85;
+    box-shadow: 0 6px 18px rgba(148, 163, 184, 0.18);
+    transform: none;
+}
+
+.service-card.locked:hover,
+.service-card:disabled:hover {
+    border-color: #e2e8f0;
+    box-shadow: 0 6px 18px rgba(148, 163, 184, 0.18);
+    transform: none;
+}
+
+.service-card.locked .service-card-banner,
+.service-card:disabled .service-card-banner {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.75), rgba(79, 70, 229, 0.65));
+}
+
 .service-card-banner {
     display: flex;
     align-items: center;
@@ -721,6 +826,50 @@
     content: "Select this service:";
 }
 
+.service-card-footer.locked {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 6px;
+    color: #92400e;
+}
+
+.service-card-footer.locked::before {
+    content: "Already included:";
+    font-weight: 700;
+    color: #b45309;
+}
+
+.service-card-footer.locked .select-indicator {
+    display: none;
+}
+
+.service-card-locked-note {
+    font-size: 0.95rem;
+    color: #b45309;
+    font-weight: 500;
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.service-card-locked-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1f2937;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.service-card-locked-link:focus {
+    outline: 2px solid #1f2937;
+    outline-offset: 2px;
+}
+
 .select-indicator {
     width: 30px;
     height: 30px;
@@ -737,6 +886,156 @@
     background-color: var(--qb-color);
     border-color: var(--qb-color);
     color: #ffffff;
+}
+
+.bundled-details-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.bundled-details-modal {
+    position: relative;
+    background: #ffffff;
+    border-radius: 12px;
+    max-width: 620px;
+    width: calc(100% - 32px);
+    padding: 28px 32px 32px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    z-index: 1001;
+    pointer-events: auto;
+}
+
+.bundled-details-close {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-size: 1.5rem;
+    line-height: 1;
+    background: transparent;
+    border: none;
+    color: #4b5563;
+    cursor: pointer;
+}
+
+.bundled-details-close:hover {
+    color: #111827;
+}
+
+.bundled-details-kicker {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--qb-color);
+    margin-bottom: 8px;
+}
+
+.bundled-details-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 12px;
+    color: #111827;
+}
+
+.bundled-details-subtitle {
+    font-size: 0.98rem;
+    color: #4b5563;
+    margin: 0 0 18px;
+}
+
+.bundled-details-package {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    background: #f9fafb;
+}
+
+.bundled-details-price {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px;
+}
+
+.bundled-details-list {
+    margin: 0 0 10px 18px;
+    padding: 0;
+    color: #374151;
+}
+
+.bundled-details-note {
+    font-size: 0.85rem;
+    color: #2563eb;
+    font-weight: 600;
+    margin: 0;
+}
+
+.bundled-upgrades {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 20px;
+}
+
+.bundled-upgrades-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #111827;
+}
+
+.bundled-upgrade-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.bundled-upgrade-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.bundled-upgrade-card h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 6px;
+    color: #111827;
+}
+
+.bundled-upgrade-price {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--qb-color);
+    margin: 0 0 8px;
+}
+
+.bundled-upgrade-list {
+    margin: 0 0 8px 18px;
+    padding: 0;
+    color: #4b5563;
+}
+
+.bundled-upgrades-note {
+    font-size: 0.85rem;
+    color: #4b5563;
+    margin: 0;
+}
+
+.bundled-details-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    pointer-events: auto;
 }
 
 .package-card {

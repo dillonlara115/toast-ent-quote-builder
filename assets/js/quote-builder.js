@@ -50,7 +50,22 @@
                         'Monogram Projection',
                         'LOVE Marquee Letters'
                     ],
-                    bonusLimit: 2
+                    bonusLimit: 2,
+                    bundledServices: [
+                        {
+                            serviceId: 'photobooth',
+                            packageId: 'strike_a_pose',
+                            upgradePackages: ['all_around_the_world', 'mirror_mirror'],
+                            message: 'Already included with the Diamond Deluxe DJ / MC package.',
+                            removalMessage:
+                                'Photo Booth is already included with your Diamond Deluxe DJ / MC package, so we removed it from your service list.',
+                            upgradeHint: 'You can still explore booth upgrades below.',
+                            infoTitle: 'The Ultimate Photo Booth',
+                            infoDescription:
+                                'This open-air booth delivers instant prints, premium backdrops, a sleek design, and a professional host—perfect for keeping guests entertained all night.',
+                            infoLink: ''
+                        }
+                    ]
                 }
             ],
             addons: [
@@ -332,16 +347,61 @@
         }).format(amount || 0);
     };
 
+    const createEmptySelection = () => ({
+        selectedPackage: '',
+        selectedBonuses: [],
+        addOns: {}
+    });
+
     const createInitialSelections = () => {
         const selections = {};
         Object.keys(quoteData).forEach((serviceId) => {
-            selections[serviceId] = {
-                selectedPackage: '',
-                selectedBonuses: [],
-                addOns: {}
-            };
+            selections[serviceId] = createEmptySelection();
         });
         return selections;
+    };
+
+    const normalizeBundledServices = (pkg) => {
+        if (!pkg || !Array.isArray(pkg.bundledServices)) {
+            return [];
+        }
+
+        return pkg.bundledServices
+            .map((entry) => {
+                if (!entry) {
+                    return null;
+                }
+                if (typeof entry === 'string') {
+                    return {
+                        serviceId: entry,
+                        packageId: '',
+                        upgradePackages: [],
+                        message: '',
+                        removalMessage: '',
+                        upgradeHint: '',
+                        infoTitle: '',
+                        infoDescription: '',
+                        infoLink: ''
+                    };
+                }
+                if (typeof entry === 'object') {
+                    return {
+                        serviceId: entry.serviceId || '',
+                        packageId: entry.packageId || '',
+                        upgradePackages: Array.isArray(entry.upgradePackages)
+                            ? entry.upgradePackages.filter(Boolean)
+                            : [],
+                        message: entry.message || '',
+                        removalMessage: entry.removalMessage || '',
+                        upgradeHint: entry.upgradeHint || '',
+                        infoTitle: entry.infoTitle || '',
+                        infoDescription: entry.infoDescription || '',
+                        infoLink: entry.infoLink || ''
+                    };
+                }
+                return null;
+            })
+            .filter((item) => item && item.serviceId);
     };
 
     const defaultFormData = () => ({
@@ -512,6 +572,12 @@
             discountLabel: '',
             bundleRewards: [],
             finalTotal: 0,
+            serviceLocks: {},
+            lockedServices: [],
+            serviceNotifications: [],
+            notificationTimers: {},
+            showBundledDetailsModal: false,
+            activeBundledServiceId: '',
             stepError: '',
             serviceProgressCount: 0,
             editingService: false,
@@ -568,6 +634,29 @@
                 return this.calculateServiceSubtotal(this.currentServiceId);
             },
 
+            get activeBundledDetail() {
+                if (!this.activeBundledServiceId) {
+                    return null;
+                }
+                return this.getPrimaryLockDetail(this.activeBundledServiceId);
+            },
+
+            get activeBundledIncludedPackage() {
+                const detail = this.activeBundledDetail;
+                if (!detail || !detail.includedPackage) {
+                    return null;
+                }
+                return detail.includedPackage;
+            },
+
+            get activeBundledUpgradePackages() {
+                const detail = this.activeBundledDetail;
+                if (!detail || !Array.isArray(detail.upgradePackages)) {
+                    return [];
+                }
+                return detail.upgradePackages;
+            },
+
             get serviceProgress() {
                 return Object.keys(this.serviceSummaries).length;
             },
@@ -593,14 +682,350 @@
                 this.stepError = '';
                 const index = this.selectedServices.indexOf(serviceId);
                 if (index === -1) {
+                    if (this.isServiceLocked(serviceId)) {
+                        this.stepError = this.getServiceLockMessage(serviceId);
+                        return;
+                    }
                     this.selectedServices.push(serviceId);
                     this.recalculateTotals();
-                } else {
-                    this.selectedServices.splice(index, 1);
-                    delete this.serviceSummaries[serviceId];
-                    this.serviceSelections[serviceId] = createInitialSelections()[serviceId];
-                    this.recalculateTotals();
+                    return;
                 }
+
+                this.removeServiceFromSelections(serviceId);
+                this.recalculateTotals();
+            },
+
+            resetServiceSelection(serviceId) {
+                if (!serviceId) {
+                    return;
+                }
+                this.serviceSelections[serviceId] = createEmptySelection();
+            },
+
+            addServiceNotification(message, serviceId = '') {
+                if (!message) {
+                    return;
+                }
+                const existing = this.serviceNotifications.find(
+                    (note) => note.message === message && note.serviceId === serviceId
+                );
+                if (existing) {
+                    this.dismissServiceNotification(existing.id);
+                }
+                const id = `svc-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+                this.serviceNotifications.push({ id, message, serviceId });
+                this.$nextTick(() => {
+                    if (this.notificationTimers[id]) {
+                        clearTimeout(this.notificationTimers[id]);
+                    }
+                    this.notificationTimers[id] = setTimeout(() => {
+                        this.dismissServiceNotification(id);
+                    }, 6000);
+                });
+            },
+
+            dismissServiceNotification(id) {
+                this.serviceNotifications = this.serviceNotifications.filter(
+                    (note) => note.id !== id
+                );
+                if (this.notificationTimers[id]) {
+                    clearTimeout(this.notificationTimers[id]);
+                    delete this.notificationTimers[id];
+                }
+            },
+
+            clearServiceNotifications() {
+                Object.keys(this.notificationTimers).forEach((id) => {
+                    clearTimeout(this.notificationTimers[id]);
+                    delete this.notificationTimers[id];
+                });
+                this.notificationTimers = {};
+                this.serviceNotifications = [];
+            },
+
+            removeServiceFromSelections(serviceId) {
+                if (!serviceId) {
+                    return;
+                }
+                const index = this.selectedServices.indexOf(serviceId);
+                if (index !== -1) {
+                    this.selectedServices.splice(index, 1);
+                    if (index < this.currentServiceIndex) {
+                        this.currentServiceIndex = Math.max(this.currentServiceIndex - 1, 0);
+                    } else if (this.currentServiceIndex >= this.selectedServices.length) {
+                        this.currentServiceIndex = Math.max(this.selectedServices.length - 1, 0);
+                    }
+                }
+                if (this.serviceSummaries[serviceId]) {
+                    delete this.serviceSummaries[serviceId];
+                }
+                this.resetServiceSelection(serviceId);
+
+                if (!this.selectedServices.length) {
+                    this.currentServiceIndex = 0;
+                    if (this.currentStep > 1) {
+                        this.currentStep = 1;
+                        this.editingService = false;
+                    }
+                }
+            },
+
+            isServiceLocked(serviceId) {
+                return this.lockedServices.includes(serviceId);
+            },
+
+            getPrimaryLockDetail(serviceId) {
+                const locks = this.serviceLocks[serviceId];
+                return Array.isArray(locks) && locks.length ? locks[0] : null;
+            },
+
+            buildDefaultLockMessage(detail) {
+                if (!detail) {
+                    return '';
+                }
+                const targetData = quoteData[detail.targetServiceId] || null;
+                const targetLabel = targetData ? targetData.label : 'This service';
+                return `${targetLabel} is already included with the ${detail.packageName} ${detail.sourceServiceLabel} package.`;
+            },
+
+            getServiceLockMessage(serviceId) {
+                const detail = this.getPrimaryLockDetail(serviceId);
+                if (!detail) {
+                    return '';
+                }
+                const base = detail.message || this.buildDefaultLockMessage(detail);
+                if (detail.upgradeHint) {
+                    return `${base} ${detail.upgradeHint}`;
+                }
+                return base;
+            },
+
+            buildRemovalMessageForDetail(detail) {
+                if (!detail) {
+                    return '';
+                }
+                if (detail.removalMessage) {
+                    if (detail.upgradeHint) {
+                        return `${detail.removalMessage} ${detail.upgradeHint}`;
+                    }
+                    return detail.removalMessage;
+                }
+                const base = detail.message || this.buildDefaultLockMessage(detail);
+                const removalNote = `${base} We've removed it from your service list.`;
+                if (detail.upgradeHint) {
+                    return `${removalNote} ${detail.upgradeHint}`;
+                }
+                return removalNote;
+            },
+
+            buildBundleNotificationMessage(detail, wasRemoved, removalMessage) {
+                if (!detail) {
+                    return '';
+                }
+                if (wasRemoved) {
+                    if (removalMessage) {
+                        return removalMessage;
+                    }
+                    return this.buildRemovalMessageForDetail(detail);
+                }
+                const includedName = detail.includedPackage ? detail.includedPackage.name : '';
+                let base = detail.message || '';
+                if (!base) {
+                    if (includedName && detail.sourcePackageName && detail.sourceServiceLabel) {
+                        base = `${includedName} is already included with your ${detail.sourcePackageName} ${detail.sourceServiceLabel} package.`;
+                    } else if (includedName) {
+                        base = `${includedName} is already included with this selection.`;
+                    } else {
+                        base = this.buildDefaultLockMessage(detail);
+                    }
+                }
+                if (detail.upgradeHint) {
+                    return `${base} ${detail.upgradeHint}`;
+                }
+                return base;
+            },
+
+            getServiceLockRemovalMessage(serviceId) {
+                const detail = this.getPrimaryLockDetail(serviceId);
+                if (!detail) {
+                    return '';
+                }
+                return this.buildRemovalMessageForDetail(detail);
+            },
+
+            resolveBundledPackage(serviceId, packageId) {
+                if (!serviceId || !packageId) {
+                    return null;
+                }
+                const service = quoteData[serviceId];
+                if (!service || !Array.isArray(service.packages)) {
+                    return null;
+                }
+                const pkg = service.packages.find((item) => item.id === packageId);
+                if (!pkg) {
+                    return null;
+                }
+                return {
+                    id: pkg.id,
+                    name: pkg.name,
+                    price: pkg.price,
+                    includes: Array.isArray(pkg.includes) ? pkg.includes.slice() : [],
+                    description: pkg.description || ''
+                };
+            },
+
+            resolveBundledUpgradePackages(serviceId, packageIds) {
+                if (!serviceId || !Array.isArray(packageIds) || !packageIds.length) {
+                    return [];
+                }
+                const service = quoteData[serviceId];
+                if (!service || !Array.isArray(service.packages)) {
+                    return [];
+                }
+                return packageIds
+                    .map((id) => {
+                        const pkg = service.packages.find((item) => item.id === id);
+                        if (!pkg) {
+                            return null;
+                        }
+                        return {
+                            id: pkg.id,
+                            name: pkg.name,
+                            price: pkg.price,
+                            includes: Array.isArray(pkg.includes) ? pkg.includes.slice() : [],
+                            description: pkg.description || ''
+                        };
+                    })
+                    .filter(Boolean);
+            },
+
+            hasBundledServiceDetails(serviceId) {
+                return Boolean(this.getPrimaryLockDetail(serviceId));
+            },
+
+            getBundledServiceIncludedPackage(serviceId) {
+                const detail = this.getPrimaryLockDetail(serviceId);
+                return detail && detail.includedPackage ? detail.includedPackage : null;
+            },
+
+            getBundledServiceIncludedLabel(serviceId) {
+                const pkg = this.getBundledServiceIncludedPackage(serviceId);
+                return pkg ? pkg.name : '';
+            },
+
+            getServiceLabel(serviceId) {
+                if (!serviceId) {
+                    return '';
+                }
+                const service = quoteData[serviceId];
+                return service ? service.label : '';
+            },
+
+            openBundledServiceDetails(serviceId) {
+                if (!serviceId || !this.hasBundledServiceDetails(serviceId)) {
+                    return;
+                }
+                this.activeBundledServiceId = serviceId;
+                this.showBundledDetailsModal = true;
+            },
+
+            closeBundledServiceDetails() {
+                this.showBundledDetailsModal = false;
+                this.activeBundledServiceId = '';
+            },
+
+            getBundledServiceDetails(serviceId, packageDef) {
+                if (!serviceId || !packageDef) {
+                    return [];
+                }
+                const normalized = normalizeBundledServices(packageDef);
+                return normalized.map((entry) => ({
+                    targetServiceId: entry.serviceId,
+                    sourceServiceId: serviceId,
+                    sourceServiceLabel: quoteData[serviceId].label,
+                    sourcePackageName: packageDef.name,
+                    packageId: packageDef.id,
+                    message: entry.message,
+                    removalMessage: entry.removalMessage,
+                    upgradeHint: entry.upgradeHint,
+                    infoTitle: entry.infoTitle,
+                    infoDescription: entry.infoDescription,
+                    infoLink: entry.infoLink,
+                    includedPackage: this.resolveBundledPackage(entry.serviceId, entry.packageId),
+                    upgradePackages: this.resolveBundledUpgradePackages(
+                        entry.serviceId,
+                        entry.upgradePackages
+                    )
+                }));
+            },
+
+            computeServiceLocks() {
+                const locks = {};
+                this.selectedServices.forEach((serviceId) => {
+                    const pkg = this.getSelectedPackageForService(serviceId);
+                    if (!pkg) {
+                        return;
+                    }
+                    const details = this.getBundledServiceDetails(serviceId, pkg);
+                    details.forEach((detail) => {
+                        if (!detail.targetServiceId) {
+                            return;
+                        }
+                        locks[detail.targetServiceId] = locks[detail.targetServiceId] || [];
+                        locks[detail.targetServiceId].push(detail);
+                    });
+                });
+                return locks;
+            },
+
+            refreshServiceLocks() {
+                const locks = this.computeServiceLocks();
+                this.serviceLocks = locks;
+                this.lockedServices = Object.keys(locks);
+            },
+
+            handleBundledServiceImpact(serviceId) {
+                if (!serviceId) {
+                    return [];
+                }
+                const packageDef = this.getSelectedPackageForService(serviceId);
+                if (!packageDef) {
+                    return [];
+                }
+
+                const details = this.getBundledServiceDetails(serviceId, packageDef);
+                const removalMessages = [];
+                const notificationMessages = [];
+
+                details.forEach((detail) => {
+                    const targetId = detail.targetServiceId;
+                    let wasRemoved = false;
+                    let removalMessage = '';
+                    if (targetId && this.selectedServices.includes(targetId)) {
+                        this.removeServiceFromSelections(targetId);
+                        removalMessage = this.buildRemovalMessageForDetail(detail);
+                        removalMessages.push(removalMessage);
+                        wasRemoved = true;
+                    }
+
+                    const notificationMessage = this.buildBundleNotificationMessage(
+                        detail,
+                        wasRemoved,
+                        removalMessage
+                    );
+                    if (notificationMessage) {
+                        notificationMessages.push({
+                            message: notificationMessage,
+                            serviceId: detail.targetServiceId
+                        });
+                    }
+                });
+
+                notificationMessages.forEach((entry) =>
+                    this.addServiceNotification(entry.message, entry.serviceId)
+                );
+
+                return removalMessages;
             },
 
             resetServices() {
@@ -608,6 +1033,10 @@
                 this.currentServiceIndex = 0;
                 this.serviceSelections = createInitialSelections();
                 this.serviceSummaries = {};
+                this.serviceLocks = {};
+                this.lockedServices = [];
+                this.clearServiceNotifications();
+                this.closeBundledServiceDetails();
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
@@ -664,7 +1093,11 @@
                 selection.selectedPackage = packageOption.id;
                 selection.selectedBonuses = selection.selectedBonuses.slice(0, packageOption.bonusLimit || 0);
                 this.stepError = '';
+                const removalMessages = this.handleBundledServiceImpact(this.currentServiceId);
                 this.recalculateTotals();
+                if (removalMessages.length) {
+                    this.stepError = removalMessages.join(' ');
+                }
             },
 
             backToServices() {
@@ -998,6 +1431,7 @@
 
                 this.calculateDiscount();
                 this.finalTotal = Math.max(this.subtotal - this.discount, 0);
+                this.refreshServiceLocks();
             },
 
             calculateDiscount() {
@@ -1131,6 +1565,10 @@
                 this.serviceSelections = createInitialSelections();
                 this.serviceSummaries = {};
                 this.orderedServiceSummaries = [];
+                this.serviceLocks = {};
+                this.lockedServices = [];
+                this.clearServiceNotifications();
+                this.closeBundledServiceDetails();
                 this.subtotal = 0;
                 this.discount = 0;
                 this.discountLabel = '';
@@ -1192,7 +1630,8 @@
                     subtotal: this.subtotal,
                     discount: this.discount,
                     discount_label: this.discountLabel,
-                    final_total: this.finalTotal
+                    final_total: this.finalTotal,
+                    bundle_rewards: JSON.stringify(this.bundleRewards)
                 };
 
                 fetch(quoteBuilderConfig.ajaxUrl, {
