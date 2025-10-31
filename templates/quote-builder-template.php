@@ -347,11 +347,14 @@ if (!defined('ABSPATH')) {
 
         <div class="space-y-4">
             <template x-for="addOn in currentServiceAddOns" :key="addOn.id">
-                <div class="add-on-card">
+                <div class="add-on-card" :class="{ 'bonus-locked': isAddOnLockedByBonus(addOn) }">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h3 class="add-on-name" x-text="addOn.name"></h3>
                             <p class="text-sm text-gray-500" x-text="describeAddOn(addOn)"></p>
+                            <template x-if="isAddOnLockedByBonus(addOn)">
+                                <p class="bonus-lock-message">Included with your package selection.</p>
+                            </template>
                         </div>
                         <div class="flex items-center gap-3">
                             <!-- Quantity based -->
@@ -367,6 +370,7 @@ if (!defined('ABSPATH')) {
                                            class="w-20 px-2 py-1 border border-gray-300 rounded"
                                            :min="addOn.min ? addOn.min : 1"
                                            :value="getAddOnQuantity(addOn.id)"
+                                           :disabled="isAddOnLockedByBonus(addOn)"
                                            @input="updateAddOnQuantity(addOn, $event.target.value)">
                                     <template x-if="addOn.unit && addOn.unit.toLowerCase() === 'hour'">
                                         <span class="ml-2 text-sm text-gray-600" x-text="addOn.unit"></span>
@@ -377,9 +381,10 @@ if (!defined('ABSPATH')) {
                             <template x-if="!addOn.base">
                                 <button type="button"
                                         class="toggle-button"
-                                        :class="{ 'active': isAddOnSelected(addOn.id) }"
+                                        :class="{ 'active': isAddOnSelected(addOn.id), 'disabled': isAddOnLockedByBonus(addOn) }"
+                                        :disabled="isAddOnLockedByBonus(addOn)"
                                         @click="toggleFlatAddOn(addOn)">
-                                    <span x-text="isAddOnSelected(addOn.id) ? 'Remove' : 'Add'"></span>
+                                    <span x-text="isAddOnLockedByBonus(addOn) ? 'Included' : (isAddOnSelected(addOn.id) ? 'Remove' : 'Add')"></span>
                                 </button>
                             </template>
                         </div>
@@ -393,6 +398,7 @@ if (!defined('ABSPATH')) {
                                     <button type="button"
                                             class="bonus-chip"
                                             :class="{ 'active': addOnExtraSelected(addOn.id, key) }"
+                                            :disabled="isAddOnLockedByBonus(addOn)"
                                             @click="toggleAddOnExtra(addOn, key, price)">
                                         <span x-text="key + ' (' + formatCurrency(price) + ')'"></span>
                                     </button>
@@ -408,6 +414,7 @@ if (!defined('ABSPATH')) {
                             </label>
                             <select class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded"
                                     @change="setAddOnOption(addOn, $event.target.value)"
+                                    :disabled="isAddOnLockedByBonus(addOn)"
                                     :value="getAddOnOption(addOn.id)">
                                 <option value="">Select an option</option>
                                 <template x-for="option in addOn.options" :key="option">
@@ -427,14 +434,17 @@ if (!defined('ABSPATH')) {
                 <span x-text="formatCurrency(currentPackagePrice)"></span>
             </p>
             <template x-for="line in currentAddOnLines" :key="line.id">
-                <p class="flex justify-between text-sm text-gray-500">
+                <p class="flex justify-between text-sm" :class="line.includedBonus ? 'text-orange-600' : 'text-gray-500'">
                     <span>
                         <span x-text="line.name"></span>
                         <template x-if="line.detail">
-                            <span class="block text-xs text-gray-400" x-text="line.detail"></span>
+                            <span class="block text-xs" :class="line.includedBonus ? 'text-orange-500' : 'text-gray-400'" x-text="line.detail"></span>
+                        </template>
+                        <template x-if="line.includedBonus">
+                            <span class="block text-xs text-orange-500">Included via package bonus</span>
                         </template>
                     </span>
-                    <span x-text="formatCurrency(line.total)"></span>
+                    <span x-text="line.includedBonus ? 'Included' : formatCurrency(line.total)"></span>
                 </p>
             </template>
             <template x-if="currentBundleUpgradeLines.length">
@@ -617,12 +627,15 @@ if (!defined('ABSPATH')) {
                                     <span x-text="snapshot.package.name"></span>
                                     <span x-text="formatCurrency(snapshot.package.price)"></span>
                                 </p>
-                                <template x-if="snapshot.package.bonuses.length">
-                                    <p class="summary-bonuses">
-                                        Bonuses:
-                                        <span x-text="snapshot.package.bonuses.join(', ')"></span>
-                                    </p>
-                                </template>
+            <template x-if="snapshot.package.bonuses.length">
+                <p class="summary-bonuses">
+                    Bonuses:
+                    <span x-text="snapshot.package.bonuses.join(', ')"></span>
+                </p>
+            </template>
+            <template x-if="snapshot.bonusSavings">
+                <p class="summary-bonus-savings">Included Enhancements Value: <span x-text="formatCurrency(snapshot.bonusSavings)"></span></p>
+            </template>
                                 <template x-if="snapshot.addOns.length">
                                     <ul class="summary-addons">
                                         <template x-for="addon in snapshot.addOns" :key="addon.id">

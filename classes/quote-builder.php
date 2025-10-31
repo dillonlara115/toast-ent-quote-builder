@@ -318,6 +318,11 @@ class teqb_Quote_Builder extends teqb_Base {
                             <?php echo esc_html(implode(', ', $service['package']['bonuses'])); ?>
                         </p>
                     <?php endif; ?>
+                    <?php if (!empty($service['bonusSavings'])) : ?>
+                        <p style="margin: 0 0 8px; color: #2563eb;">
+                            <strong>Included Enhancements Value:</strong> <?php echo $this->format_currency($service['bonusSavings']); ?>
+                        </p>
+                    <?php endif; ?>
                     <?php if (!empty($service['package']['includes'])) : ?>
                         <p style="margin: 0 0 8px;"><strong>Includes:</strong></p>
                         <ul style="margin: 0 0 12px 18px; padding: 0;">
@@ -453,6 +458,17 @@ class teqb_Quote_Builder extends teqb_Base {
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
+                    <?php if (!empty($service['package']['bonuses'])) : ?>
+                        <p style="margin: 0 0 8px;">
+                            <strong>Selected Bonuses:</strong>
+                            <?php echo esc_html(implode(', ', $service['package']['bonuses'])); ?>
+                        </p>
+                    <?php endif; ?>
+                    <?php if (!empty($service['bonusSavings'])) : ?>
+                        <p style="margin: 0 0 8px; color: #2563eb;">
+                            <strong>Included Enhancements Value:</strong> <?php echo $this->format_currency($service['bonusSavings']); ?>
+                        </p>
+                    <?php endif; ?>
                     <?php if (!empty($service['addOns'])) : ?>
                         <p style="margin: 0 0 6px;"><strong>Add-ons:</strong></p>
                         <ul style="margin: 0 0 12px 18px; padding: 0;">
@@ -465,6 +481,23 @@ class teqb_Quote_Builder extends teqb_Base {
                                         (<?php echo esc_html($addon['quantity']); ?>)
                                     <?php endif; ?>
                                     – <?php echo $this->format_currency($addon['total']); ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                    <?php if (!empty($service['bundleUpgrades'])) : ?>
+                        <p style="margin: 0 0 6px;"><strong>Upgrades:</strong></p>
+                        <ul style="margin: 0 0 12px 18px; padding: 0;">
+                            <?php foreach ($service['bundleUpgrades'] as $upgrade) : ?>
+                                <?php $delta = isset($upgrade['delta']) ? max(0, floatval($upgrade['delta'])) : 0; ?>
+                                <li>
+                                    <?php echo esc_html($upgrade['packageName']); ?>
+                                    <?php if (!empty($upgrade['includedName'])) : ?>
+                                        <br><small>Replaces: <?php echo esc_html($upgrade['includedName']); ?></small>
+                                    <?php endif; ?>
+                                    <br><strong>
+                                        <?php echo $delta > 0 ? $this->format_currency($delta) : 'Included'; ?>
+                                    </strong>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -604,6 +637,8 @@ class teqb_Quote_Builder extends teqb_Base {
                 ],
                 'addOns' => $add_ons,
                 'bundleUpgrades' => $bundle_upgrades,
+                'bonusSelections' => array_map('sanitize_text_field', $service['bonusSelections'] ?? []),
+                'bonusSavings' => isset($service['bonusSavings']) ? floatval($service['bonusSavings']) : 0,
                 'subtotal' => isset($service['subtotal']) ? floatval($service['subtotal']) : 0,
             ];
         }

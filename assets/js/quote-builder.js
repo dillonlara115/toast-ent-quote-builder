@@ -1325,6 +1325,10 @@
                 } else if (existing.length < (packageOption.bonusLimit || 0)) {
                     existing.push(bonus);
                 }
+                if (existing.length > (packageOption.bonusLimit || 0)) {
+                    existing.splice(packageOption.bonusLimit);
+                }
+                this.syncBonusAddOns(this.currentServiceId);
                 this.recalculateTotals();
             },
 
@@ -1336,12 +1340,62 @@
                 const selection = this.serviceSelections[this.currentServiceId];
                 selection.selectedPackage = packageOption.id;
                 selection.selectedBonuses = selection.selectedBonuses.slice(0, packageOption.bonusLimit || 0);
+                this.syncBonusAddOns(this.currentServiceId);
                 this.stepError = '';
                 const removalMessages = this.handleBundledServiceImpact(this.currentServiceId);
                 this.recalculateTotals();
                 if (removalMessages.length) {
                     this.stepError = removalMessages.join(' ');
                 }
+            },
+
+            getBonusSelectionsForService(serviceId) {
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !Array.isArray(selection.selectedBonuses)) {
+                    return new Set();
+                }
+                const packageDef = this.getSelectedPackageForService(serviceId);
+                if (!packageDef || !Array.isArray(packageDef.bonusOptions)) {
+                    return new Set();
+                }
+                const bonusSet = new Set(packageDef.bonusOptions);
+                return new Set(selection.selectedBonuses.filter((bonus) => bonusSet.has(bonus)));
+            },
+
+            syncBonusAddOns(serviceId) {
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.addOns) {
+                    return;
+                }
+                const bonusSelections = this.getBonusSelectionsForService(serviceId);
+                if (!bonusSelections.size) {
+                    return;
+                }
+
+                const serviceData = quoteData[serviceId];
+                if (!serviceData || !Array.isArray(serviceData.addons)) {
+                    return;
+                }
+
+                const nameToId = new Map(serviceData.addons.map((addon) => [addon.name, addon.id]));
+                bonusSelections.forEach((bonusName) => {
+                    const addOnId = nameToId.get(bonusName);
+                    if (addOnId && selection.addOns[addOnId]) {
+                        delete selection.addOns[addOnId];
+                    }
+                });
+            },
+
+            isAddOnLockedByBonus(addOn, serviceId = null) {
+                if (!addOn) {
+                    return false;
+                }
+                const targetServiceId = serviceId || this.currentServiceId;
+                if (!targetServiceId) {
+                    return false;
+                }
+                const bonusSelections = this.getBonusSelectionsForService(targetServiceId);
+                return bonusSelections.has(addOn.name);
             },
 
             backToServices() {
@@ -1398,6 +1452,9 @@
                 if (!serviceId) {
                     return;
                 }
+                if (this.isAddOnLockedByBonus(addOn, serviceId)) {
+                    return;
+                }
                 const selection = this.serviceSelections[serviceId];
                 const min = addOn.min ? Number(addOn.min) : 1;
                 const quantity = Math.max(parseFloat(value) || 0, 0);
@@ -1419,6 +1476,9 @@
             toggleFlatAddOn(addOn) {
                 const serviceId = this.currentServiceId;
                 if (!serviceId) {
+                    return;
+                }
+                if (this.isAddOnLockedByBonus(addOn, serviceId)) {
                     return;
                 }
                 const selection = this.serviceSelections[serviceId];
@@ -1454,6 +1514,9 @@
                 if (!serviceId) {
                     return;
                 }
+                if (this.isAddOnLockedByBonus(addOn, serviceId)) {
+                    return;
+                }
                 const selection = this.serviceSelections[serviceId];
                 const entry = selection.addOns[addOn.id] || {
                     quantity: addOn.base ? (addOn.min || 1) : 1,
@@ -1482,6 +1545,9 @@
             setAddOnOption(addOn, value) {
                 const serviceId = this.currentServiceId;
                 if (!serviceId) {
+                    return;
+                }
+                if (this.isAddOnLockedByBonus(addOn, serviceId)) {
                     return;
                 }
                 const selection = this.serviceSelections[serviceId];
@@ -1516,6 +1582,8 @@
                 if (!serviceData || !selection) {
                     return [];
                 }
+
+                const bonusSelections = this.getBonusSelectionsForService(serviceId);
 
                 const lines = [];
                 Object.entries(selection.addOns).forEach(([addOnId, stored]) => {
@@ -1557,7 +1625,8 @@
                         total,
                         extras: extrasLabels,
                         options: stored.selectedOption ? [stored.selectedOption] : [],
-                        detail: detailParts.length ? detailParts.join(' • ') : null
+                        detail: detailParts.length ? detailParts.join(' • ') : null,
+                        includedBonus: bonusSelections.has(addOnDef.name)
                     });
                 });
                 return lines;
@@ -1603,6 +1672,39 @@
                 return packagePrice + addOnTotal + upgradeTotal;
             },
 
+            calculateBonusSavings(serviceId) {
+                const selection = this.serviceSelections[serviceId];
+                if (!selection) {
+                    return 0;
+                }
+
+                const selectedPackage = this.getSelectedPackageForService(serviceId);
+                if (!selectedPackage || !Array.isArray(selectedPackage.bonusOptions)) {
+                    return 0;
+                }
+
+                const bonusSet = new Set(selectedPackage.bonusOptions);
+                const selectedBonuses = selection.selectedBonuses || [];
+                if (!selectedBonuses.length) {
+                    return 0;
+                }
+
+                const serviceData = quoteData[serviceId];
+                if (!serviceData || !Array.isArray(serviceData.addons)) {
+                    return 0;
+                }
+
+                const bonusAddOns = serviceData.addons.filter((addon) => bonusSet.has(addon.name));
+                return selectedBonuses.reduce((sum, bonusName) => {
+                    const match = bonusAddOns.find((addon) => addon.name === bonusName);
+                    if (!match) {
+                        return sum;
+                    }
+                    const price = Number(match.price || match.base || 0);
+                    return sum + (price > 0 ? price : 0);
+                }, 0);
+            },
+
             calculateUpgradeTotal(serviceId) {
                 const selection = this.serviceSelections[serviceId];
                 if (!selection || !selection.bundleUpgrades) {
@@ -1642,7 +1744,11 @@
 
                 const addOns = this.buildAddOnLines(serviceId);
                 const bundleUpgrades = this.buildUpgradeLines(serviceId);
+                const bonusSelections = Array.isArray(selection.selectedBonuses)
+                    ? selection.selectedBonuses.slice()
+                    : [];
                 const subtotal = this.calculateServiceSubtotal(serviceId);
+                const bonusSavings = this.calculateBonusSavings(serviceId);
 
                 return {
                     serviceId,
@@ -1655,6 +1761,8 @@
                         bonuses: selection.selectedBonuses.slice()
                     },
                     addOns,
+                    bonusSelections,
+                    bonusSavings,
                     bundleUpgrades,
                     subtotal,
                     inProgress: !this.serviceSummaries[serviceId]
@@ -1909,6 +2017,8 @@
                         serviceId: snapshot.serviceId,
                         serviceLabel: snapshot.serviceLabel,
                         package: snapshot.package,
+                        bonusSelections: snapshot.bonusSelections || [],
+                        bonusSavings: snapshot.bonusSavings || 0,
                         addOns: snapshot.addOns,
                         bundleUpgrades: snapshot.bundleUpgrades || [],
                         subtotal: snapshot.subtotal
