@@ -14,7 +14,7 @@
                     id: 'essential_experience',
                     name: 'Essential Experience',
                     price: 795,
-                    includes: ['4 hours of entertainment', 'Ceremony mic']
+                    includes: ['4 hours of entertainment']
                 },
                 {
                     id: 'platinum_experience',
@@ -71,9 +71,9 @@
             addons: [
                 { id: 'extra_hour', name: 'Extra Hour', base: 200, unit: 'hour' },
                 { id: 'lapel_mic', name: 'Lapel Microphone', price: 95 },
-                { id: 'cold_sparks', name: 'Cold Spark Fountains', base: 595, extras: { Blast: 200 } },
+                { id: 'cold_sparks', name: 'Cold Spark Fountains', base: 595, min: 2, extras: { Blast: 200 } },
                 { id: 'cloud', name: 'Dancing on a Cloud', price: 595 },
-                { id: 'uplighting', name: 'Uplighting', price: 395 },
+                { id: 'uplighting', name: 'Uplighting', base: 395, unit: 'light' },
                 { id: 'monogram', name: 'Monogram Projection', price: 595 },
                 { id: 'mashup', name: 'Custom Mashup', price: 95 },
                 { id: 'karaoke', name: 'Karaoke Experience', price: 595 },
@@ -82,8 +82,7 @@
                 { id: 'letters', name: 'Marquee Letters', base: 150, min: 4, unit: 'letter' },
                 { id: 'tv_booth', name: 'TV Booth', price: 795 },
                 { id: 'tower_booth', name: 'Tower DJ Booth', price: 795 },
-                { id: 'request_dj', name: 'Request Specific DJ', price: 200 },
-                { id: 'reservation', name: 'Special Reservation', price: 200 }
+                { id: 'request_dj', name: 'Request Specific DJ', price: 200 }
             ]
         },
         photography: {
@@ -125,7 +124,7 @@
                 }
             ],
             addons: [
-                { id: 'bridal_session', name: 'Bridal or Engagement Photo Session', price: 445 },
+                { id: 'bridal_session', name: 'Bridal or Engagement Photo Session', price: 445, options: ['Bridal Session', 'Engagement Session'] },
                 { id: 'expedited_editing', name: 'Expedited Editing', price: 300 },
                 { id: 'lead_extra_hour', name: 'Lead Photographer Extra Hour', base: 300, unit: 'hour' },
                 { id: 'assistant_photographer', name: 'Assistant Photographer', base: 125, unit: 'hour', min: 4 },
@@ -1341,6 +1340,7 @@
                 selection.selectedPackage = packageOption.id;
                 selection.selectedBonuses = selection.selectedBonuses.slice(0, packageOption.bonusLimit || 0);
                 this.syncBonusAddOns(this.currentServiceId);
+                this.syncPackageIncludedAddOns(this.currentServiceId);
                 this.stepError = '';
                 const removalMessages = this.handleBundledServiceImpact(this.currentServiceId);
                 this.recalculateTotals();
@@ -1386,6 +1386,35 @@
                 });
             },
 
+            syncPackageIncludedAddOns(serviceId) {
+                const selection = this.serviceSelections[serviceId];
+                if (!selection || !selection.selectedPackage) {
+                    return;
+                }
+                const serviceData = quoteData[serviceId];
+                if (!serviceData || !Array.isArray(serviceData.addons)) {
+                    return;
+                }
+                const selectedPackage = this.getSelectedPackageForService(serviceId);
+                if (!selectedPackage) {
+                    return;
+                }
+                
+                // Auto-select addons that are included in the package
+                serviceData.addons.forEach((addon) => {
+                    if (this.isAddOnIncludedInPackage(addon, serviceId)) {
+                        // Don't auto-select if already selected (user might have manually added it)
+                        if (!selection.addOns[addon.id]) {
+                            selection.addOns[addon.id] = {
+                                quantity: addon.base ? (addon.min || 1) : 1,
+                                extras: {},
+                                selectedOption: ''
+                            };
+                        }
+                    }
+                });
+            },
+
             isAddOnLockedByBonus(addOn, serviceId = null) {
                 if (!addOn) {
                     return false;
@@ -1394,8 +1423,92 @@
                 if (!targetServiceId) {
                     return false;
                 }
+                // Check if locked by bonus selections
                 const bonusSelections = this.getBonusSelectionsForService(targetServiceId);
-                return bonusSelections.has(addOn.name);
+                if (bonusSelections.has(addOn.name)) {
+                    return true;
+                }
+                // Check if included in package (for lapel_mic only, not uplighting)
+                // Uplighting allows additional units, so it shouldn't be locked
+                if (addOn.id === 'lapel_mic') {
+                    return this.isAddOnIncludedInPackage(addOn, targetServiceId);
+                }
+                return false;
+            },
+
+            isAddOnIncludedInPackage(addOn, serviceId = null) {
+                if (!addOn) {
+                    return false;
+                }
+                const targetServiceId = serviceId || this.currentServiceId;
+                if (!targetServiceId) {
+                    return false;
+                }
+                const selectedPackage = this.getSelectedPackageForService(targetServiceId);
+                if (!selectedPackage || !selectedPackage.includes) {
+                    return false;
+                }
+                
+                // Check if lapel_mic is included (as 'Ceremony mic')
+                if (addOn.id === 'lapel_mic') {
+                    return selectedPackage.includes.some(
+                        include => include.toLowerCase().includes('ceremony mic')
+                    );
+                }
+                
+                // Check if uplighting is included (as '10 LED uplights')
+                if (addOn.id === 'uplighting') {
+                    return selectedPackage.includes.some(
+                        include => include.toLowerCase().includes('led uplight') || include.toLowerCase().includes('uplight')
+                    );
+                }
+                
+                // Check if bridal_session is included (as 'Engagement or Bridal Session')
+                if (addOn.id === 'bridal_session') {
+                    return selectedPackage.includes.some(
+                        include => include.toLowerCase().includes('engagement') && include.toLowerCase().includes('bridal')
+                    );
+                }
+                
+                // Check if drone is included (as 'Drone footage')
+                if (addOn.id === 'drone') {
+                    return selectedPackage.includes.some(
+                        include => include.toLowerCase().includes('drone')
+                    );
+                }
+                
+                // Check if rehearsal is included (as 'Rehearsal coverage')
+                if (addOn.id === 'rehearsal') {
+                    return selectedPackage.includes.some(
+                        include => include.toLowerCase().includes('rehearsal')
+                    );
+                }
+                
+                return false;
+            },
+
+            getUplightingIncludedCount(serviceId = null) {
+                const targetServiceId = serviceId || this.currentServiceId;
+                if (!targetServiceId) {
+                    return 0;
+                }
+                const selectedPackage = this.getSelectedPackageForService(targetServiceId);
+                if (!selectedPackage || !selectedPackage.includes) {
+                    return 0;
+                }
+                
+                // Look for '10 LED uplights' or similar pattern
+                const uplightInclude = selectedPackage.includes.find(
+                    include => include.toLowerCase().includes('led uplight') || include.toLowerCase().includes('uplight')
+                );
+                
+                if (uplightInclude) {
+                    // Extract number from strings like "10 LED uplights"
+                    const match = uplightInclude.match(/(\d+)/);
+                    return match ? parseInt(match[1], 10) : 0;
+                }
+                
+                return 0;
             },
 
             backToServices() {
@@ -1593,15 +1706,31 @@
                     }
 
                     const quantity = stored.quantity || (addOnDef.base ? (addOnDef.min || 1) : 1);
+                    const isIncludedInPackage = this.isAddOnIncludedInPackage(addOnDef, serviceId);
                     let total = 0;
                     const detailParts = [];
 
-                    if (addOnDef.price) {
-                        total += Number(addOnDef.price);
-                    }
-                    if (addOnDef.base) {
-                        total += Number(addOnDef.base) * quantity;
-                        detailParts.push(`${quantity} ${addOnDef.unit || 'unit'}`);
+                    // If included in package, only charge for extras or additional quantities
+                    if (isIncludedInPackage && !addOnDef.base) {
+                        // Flat price addon included in package - $0 unless they add extras
+                        total = 0;
+                    } else if (isIncludedInPackage && addOnDef.base) {
+                        // Quantity-based addon included in package - charge only for additional units
+                        const includedCount = addOnDef.id === 'uplighting' ? this.getUplightingIncludedCount(serviceId) : 0;
+                        const additionalQuantity = Math.max(0, quantity - includedCount);
+                        total = Number(addOnDef.base) * additionalQuantity;
+                        if (additionalQuantity > 0) {
+                            detailParts.push(`${additionalQuantity} additional ${addOnDef.unit || 'unit'}`);
+                        }
+                    } else {
+                        // Not included in package - charge normally
+                        if (addOnDef.price) {
+                            total += Number(addOnDef.price);
+                        }
+                        if (addOnDef.base) {
+                            total += Number(addOnDef.base) * quantity;
+                            detailParts.push(`${quantity} ${addOnDef.unit || 'unit'}`);
+                        }
                     }
 
                     const extras = stored.extras || {};
@@ -1626,7 +1755,7 @@
                         extras: extrasLabels,
                         options: stored.selectedOption ? [stored.selectedOption] : [],
                         detail: detailParts.length ? detailParts.join(' • ') : null,
-                        includedBonus: bonusSelections.has(addOnDef.name)
+                        includedBonus: bonusSelections.has(addOnDef.name) || isIncludedInPackage
                     });
                 });
                 return lines;

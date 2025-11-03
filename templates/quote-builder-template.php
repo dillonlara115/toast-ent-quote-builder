@@ -220,6 +220,12 @@ if (!defined('ABSPATH')) {
                         </template>
                     </ul>
 
+                    <template x-if="packageOption.includes && packageOption.includes.some(item => item.toLowerCase().includes('hour') || item.toLowerCase().includes('hours'))">
+                        <p class="text-sm text-gray-500 mt-2 italic">
+                            Additional time can be added on the next screen.
+                        </p>
+                    </template>
+
                     <template x-if="packageOption.bonusOptions">
                         <div class="mt-4">
                             <p class="text-sm font-semibold  mb-2">
@@ -355,6 +361,26 @@ if (!defined('ABSPATH')) {
                             <template x-if="isAddOnLockedByBonus(addOn)">
                                 <p class="bonus-lock-message">Included with your package selection.</p>
                             </template>
+                            <template x-if="addOn.id === 'uplighting' && isAddOnIncludedInPackage(addOn)">
+                                <p class="text-sm text-blue-600 font-medium mt-1">
+                                    <span x-text="getUplightingIncludedCount() + ' uplights already included with your package. Add additional uplights above.'"></span>
+                                </p>
+                            </template>
+                            <template x-if="addOn.id === 'bridal_session' && isAddOnIncludedInPackage(addOn)">
+                                <p class="text-sm text-blue-600 font-medium mt-1">
+                                    Already included with your package. Please select which session you'd like below. You can also add the other option if you want both.
+                                </p>
+                            </template>
+                            <template x-if="addOn.id === 'drone' && isAddOnIncludedInPackage(addOn)">
+                                <p class="text-sm text-blue-600 font-medium mt-1">
+                                    Already included with your package. You can add additional drone coverage above if needed.
+                                </p>
+                            </template>
+                            <template x-if="addOn.id === 'rehearsal' && isAddOnIncludedInPackage(addOn)">
+                                <p class="text-sm text-blue-600 font-medium mt-1">
+                                    Already included with your package. You can add additional rehearsal coverage above if needed.
+                                </p>
+                            </template>
                         </div>
                         <div class="flex items-center gap-3">
                             <!-- Quantity based -->
@@ -384,7 +410,7 @@ if (!defined('ABSPATH')) {
                                         :class="{ 'active': isAddOnSelected(addOn.id), 'disabled': isAddOnLockedByBonus(addOn) }"
                                         :disabled="isAddOnLockedByBonus(addOn)"
                                         @click="toggleFlatAddOn(addOn)">
-                                    <span x-text="isAddOnLockedByBonus(addOn) ? 'Included' : (isAddOnSelected(addOn.id) ? 'Remove' : 'Add')"></span>
+                                    <span x-text="isAddOnLockedByBonus(addOn) ? 'Included' : (isAddOnIncludedInPackage(addOn) && isAddOnSelected(addOn.id) ? 'Included' : (isAddOnSelected(addOn.id) ? 'Remove' : 'Add'))"></span>
                                 </button>
                             </template>
                         </div>

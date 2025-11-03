@@ -408,6 +408,9 @@ class teqb_Quote_Builder extends teqb_Base {
             <?php endif; ?>
         <h3 style="color: #555; margin-top: 32px;">Details &amp; Pricing Notes</h3>
         <h5 style="color: #222; margin: 3px 0 12px 0; font-size: 15px;">Some Notes on Pricing</h5>
+        <p style="margin: 0 0 18px; color: #444; font-size: 15px;">
+            The total shown in your instant quote is an initial estimate. Once we review your event details, your final proposal may include applicable travel fees, peak date adjustments, and state/local sales tax. We'll confirm all pricing and details with you before finalizing your booking.
+        </p>
         <ul style="margin: 0 0 18px 22px; padding: 0 0 0 0; color: #444; font-size: 15px;">
             <li style="margin-bottom: 10px;">
                 If you do not see a package that works for you, please contact us and we would be happy to arrange a package more closely suited to your needs and budget!
@@ -542,7 +545,26 @@ class teqb_Quote_Builder extends teqb_Base {
             <?php endif; ?>
             <p><strong>Estimated Total:</strong> <?php echo $this->format_currency($data['final_total']); ?></p>
 
-            <p style="margin-top: 24px;">We’ll reach out soon to confirm availability and next steps. Feel free to reply to this email if you have questions in the meantime.</p>
+            <h3 style="color: #555; margin-top: 32px;">Some Notes on Pricing</h3>
+            <p style="margin: 0 0 18px; color: #444; font-size: 15px;">
+                The total shown in your instant quote is an initial estimate. Once we review your event details, your final proposal may include applicable travel fees, peak date adjustments, and state/local sales tax. We'll confirm all pricing and details with you before finalizing your booking.
+            </p>
+            <ul style="margin: 0 0 18px 22px; padding: 0 0 0 0; color: #444; font-size: 15px;">
+                <li style="margin-bottom: 10px;">
+                    If you do not see a package that works for you, please contact us and we would be happy to arrange a package more closely suited to your needs and budget!
+                </li>
+                <li style="margin-bottom: 10px;">
+                    All applicable taxes are already included in the price listed. Peak dates may affect pricing.
+                </li>
+                <li style="margin-bottom: 10px;">
+                    For Saturday events in March, April, May, September, November, and December, please add $100 to the package price. For Saturday events in October, please add $200 to the package price.
+                </li>
+                <li>
+                    National holiday rates may differ. Please inquire for accurate quote.
+                </li>
+            </ul>
+
+            <p style="margin-top: 24px;">We'll reach out soon to confirm availability and next steps. Feel free to reply to this email if you have questions in the meantime.</p>
             
             <p>With gratitude,<br>The Toast Entertainment Team</p>
         </body>
