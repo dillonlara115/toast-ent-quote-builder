@@ -559,6 +559,16 @@ if (!defined('ABSPATH')) {
                         <label for="message" class="form-label">Additional Message (Optional)</label>
                         <textarea id="message" x-model="formData.message" rows="4" class="form-input"></textarea>
                     </div>
+                    <div>
+                        <label for="referral-source" class="form-label">Where did you hear about us?</label>
+                        <select id="referral-source" x-model="formData.referralSource" class="form-input">
+                            <option value="">Select an option</option>
+                            <option value="Google search">Google search</option>
+                            <option value="Social media">Social media</option>
+                            <option value="Friend or family">Friend or family</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
                 </form>
 
                 <div class="navigation-buttons mt-6">

@@ -201,6 +201,7 @@ class teqb_Quote_Builder extends teqb_Base {
         $event_type = sanitize_text_field(wp_unslash($_POST['event_type'] ?? ''));
         $guests     = intval($_POST['guests'] ?? 0);
         $message    = sanitize_textarea_field(wp_unslash($_POST['message'] ?? ''));
+        $referral_source = sanitize_text_field(wp_unslash($_POST['referral_source'] ?? ''));
 
         $services_raw = wp_unslash($_POST['services'] ?? '[]');
         $services_decoded = json_decode($services_raw, true);
@@ -236,6 +237,7 @@ class teqb_Quote_Builder extends teqb_Base {
             'discount_label' => $discount_label,
             'final_total' => $final_total,
             'message' => $message,
+            'referral_source' => $referral_source,
             'bundle_rewards' => $bundle_rewards,
         ]);
         
@@ -299,6 +301,9 @@ class teqb_Quote_Builder extends teqb_Base {
             <?php endif; ?>
             <?php if (!empty($data['guests'])) : ?>
                 <p><strong>Guests:</strong> <?php echo esc_html($data['guests']); ?></p>
+            <?php endif; ?>
+            <?php if (!empty($data['referral_source'])) : ?>
+                <p><strong>Where did you hear about us:</strong> <?php echo esc_html($data['referral_source']); ?></p>
             <?php endif; ?>
 
             <h3 style="color: #555; margin-top: 24px;">Requested Services</h3>
@@ -742,6 +747,7 @@ class teqb_Quote_Builder extends teqb_Base {
         update_post_meta($post_id, '_teqb_quote_event_type', $data['event_type']);
         update_post_meta($post_id, '_teqb_quote_guests', $data['guests']);
         update_post_meta($post_id, '_teqb_quote_message', $data['message']);
+        update_post_meta($post_id, '_teqb_quote_referral_source', $data['referral_source'] ?? '');
         update_post_meta($post_id, '_teqb_quote_services', $data['services']);
         update_post_meta($post_id, '_teqb_quote_subtotal', $data['subtotal']);
         update_post_meta($post_id, '_teqb_quote_discount', $data['discount']);

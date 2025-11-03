@@ -177,6 +177,9 @@ class teqb_Admin {
 				<?php if (!empty($meta['guests'])) : ?>
 					<li><strong><?php esc_html_e('Guests:', 'teqb'); ?></strong> <?php echo esc_html($meta['guests']); ?></li>
 				<?php endif; ?>
+				<?php if (!empty($meta['referral_source'])) : ?>
+					<li><strong><?php esc_html_e('Where did you hear about us:', 'teqb'); ?></strong> <?php echo esc_html($meta['referral_source']); ?></li>
+				<?php endif; ?>
 			</ul>
 
 			<?php if (!empty($meta['message'])) : ?>
@@ -552,6 +555,7 @@ class teqb_Admin {
 			'event_date'           => get_post_meta($post_id, '_teqb_quote_event_date', true),
 			'event_type'           => get_post_meta($post_id, '_teqb_quote_event_type', true),
 			'guests'               => get_post_meta($post_id, '_teqb_quote_guests', true),
+			'referral_source'      => get_post_meta($post_id, '_teqb_quote_referral_source', true),
 			'message'              => get_post_meta($post_id, '_teqb_quote_message', true),
 			'services'             => is_array(get_post_meta($post_id, '_teqb_quote_services', true)) ? get_post_meta($post_id, '_teqb_quote_services', true) : array(),
 			'subtotal'             => floatval(get_post_meta($post_id, '_teqb_quote_subtotal', true)),

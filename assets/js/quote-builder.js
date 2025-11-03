@@ -411,7 +411,8 @@
         eventDate: '',
         eventType: '',
         guests: '',
-        message: ''
+        message: '',
+        referralSource: ''
     });
 
     const serviceContent = {
@@ -2163,6 +2164,7 @@
                     event_type: this.formData.eventType,
                     guests: this.formData.guests,
                     message: this.formData.message,
+                    referral_source: this.formData.referralSource,
                     services: JSON.stringify(servicePayload),
                     subtotal: this.subtotal,
                     discount: this.discount,
