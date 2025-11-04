@@ -591,6 +591,7 @@
             formData: defaultFormData(),
             availableServices: [],
             showPricingNotes: false,
+            showBundleRewardsModal: false,
 
             init() {
                 this.availableServices = buildAvailableServices();
