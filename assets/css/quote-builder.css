@@ -65,7 +65,58 @@
     color: var(--qb-color);
 }
 
+/* Prevent Flowbite's .collapse styles from overriding Avada's toggles/accordions */
+/* Avada uses .collapse (collapsed) and .collapse.in (expanded) pattern */
+/* Flowbite CSS interferes with Avada's collapse, so we neutralize Flowbite globally */
 
+/* First, remove Flowbite's visibility: collapse which breaks Avada */
+.collapse {
+    visibility: visible !important;
+}
+
+/* Avada's collapsed state: .collapse without .in should be hidden */
+/* This ensures toggles start collapsed and only show when .in is added */
+.collapse:not(.in) {
+    display: none !important;
+}
+
+/* Avada's expanded state: .collapse.in should be visible */
+.collapse.in {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Support for Avada's height transitions during collapse animation */
+.collapse.collapsing {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Flowbite collapse styles only within the quote builder (if needed in future) */
+/* These rules override the global Avada rules above for Flowbite components */
+.toast-quote-builder .collapse {
+    visibility: visible !important;
+}
+
+/* Flowbite uses .show instead of .in for expanded state */
+.toast-quote-builder .collapse:not(.show):not(.in) {
+    display: none !important;
+}
+
+.toast-quote-builder .collapse.show,
+.toast-quote-builder .collapse.in {
+    display: block !important;
+    visibility: visible !important;
+}
+
+.toast-quote-builder .collapsing {
+    position: relative;
+    height: 0 !important;
+    overflow: hidden !important;
+    transition: height 0.35s ease !important;
+    display: block !important;
+    visibility: visible !important;
+}
 
 .quote-layout {
     display: flex;
