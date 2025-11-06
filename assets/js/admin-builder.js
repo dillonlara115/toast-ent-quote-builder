@@ -122,7 +122,8 @@
 		price: '',
 		includes: [],
 		bonusOptions: [],
-		bonusLimit: ''
+		bonusLimit: '',
+		bundledServices: []
 	});
 
 	const createEmptyAddon = () => ({
@@ -132,7 +133,8 @@
 		base: '',
 		unit: '',
 		min: '',
-		options: []
+		options: [],
+		extras: {}
 	});
 
 	const createEmptyBundleRule = () => ({
@@ -177,7 +179,198 @@
 		});
 	};
 
-	const PackageEditor = ({ pkg, onChange, onRemove }) => {
+	const createEmptyBundledService = () => ({
+		serviceId: '',
+		packageId: '',
+		upgradePackages: [],
+		message: '',
+		removalMessage: '',
+		upgradeHint: '',
+		infoTitle: '',
+		infoDescription: '',
+		infoLink: ''
+	});
+
+	const BundledServiceEditor = ({ bundledService, onChange, onRemove, allServices }) => {
+		const handleUpdate = (field, fieldValue) => {
+			const next = { ...bundledService, [field]: fieldValue };
+			onChange(next);
+		};
+
+		// Get available service IDs from allServices
+		const serviceOptions = allServices.map((svc) => ({
+			value: svc.id || '',
+			label: svc.label || svc.id || __('Select service', 'teqb')
+		}));
+
+		// Get packages for the selected service
+		const selectedService = allServices.find((svc) => svc.id === bundledService.serviceId);
+		const packageOptions = selectedService && Array.isArray(selectedService.packages)
+			? selectedService.packages.map((pkg) => ({
+				value: pkg.id || '',
+				label: pkg.name || pkg.id || __('Select package', 'teqb')
+			}))
+			: [];
+
+		// Get upgrade packages for the selected service
+		const upgradePackageOptions = selectedService && Array.isArray(selectedService.packages)
+			? selectedService.packages.map((pkg) => ({
+				value: pkg.id || '',
+				label: pkg.name || pkg.id || ''
+			}))
+			: [];
+
+		const upgradePackagesValue = Array.isArray(bundledService.upgradePackages)
+			? bundledService.upgradePackages
+			: [];
+
+		return el('div', { className: 'teqb-nested-card', style: { border: '1px solid #ddd', padding: '12px', marginBottom: '12px' } },
+			el('h4', { style: { marginTop: 0 } }, __('Bundled Service', 'teqb')),
+			el('div', { className: 'teqb-nested-grid' },
+				el(SelectControl, {
+					label: __('Service ID', 'teqb'),
+					help: __('The service ID that is bundled with this package.', 'teqb'),
+					value: bundledService.serviceId || '',
+					options: [{ value: '', label: __('Select a service', 'teqb') }, ...serviceOptions],
+					onChange: (value) => {
+						const next = { ...bundledService, serviceId: value, packageId: '', upgradePackages: [] };
+						onChange(next);
+					}
+				}),
+				el(SelectControl, {
+					label: __('Package ID', 'teqb'),
+					help: __('The default package included for the bundled service.', 'teqb'),
+					value: bundledService.packageId || '',
+					options: [{ value: '', label: __('Select a package', 'teqb') }, ...packageOptions],
+					onChange: (value) => handleUpdate('packageId', value),
+					disabled: !bundledService.serviceId
+				})
+			),
+			el(TextareaControl, {
+				label: __('Upgrade Packages', 'teqb'),
+				help: __('Enter package IDs that can be used as upgrades, one per line.', 'teqb'),
+				value: upgradePackagesValue.join('\n'),
+				placeholder: __('e.g., all_around_the_world\nmirror_mirror', 'teqb'),
+				onChange: (text) => {
+					const items = text
+						.split('\n')
+						.map((line) => line.trim())
+						.filter(Boolean);
+					handleUpdate('upgradePackages', items);
+				}
+			}),
+			el(TextControl, {
+				label: __('Message', 'teqb'),
+				help: __('Message shown when this bundled service is detected.', 'teqb'),
+				value: bundledService.message || '',
+				onChange: (value) => handleUpdate('message', value)
+			}),
+			el(TextareaControl, {
+				label: __('Removal Message', 'teqb'),
+				help: __('Message shown when the bundled service is removed from selections.', 'teqb'),
+				value: bundledService.removalMessage || '',
+				onChange: (value) => handleUpdate('removalMessage', value)
+			}),
+			el(TextControl, {
+				label: __('Upgrade Hint', 'teqb'),
+				help: __('Hint text about available upgrades.', 'teqb'),
+				value: bundledService.upgradeHint || '',
+				onChange: (value) => handleUpdate('upgradeHint', value)
+			}),
+			el(TextControl, {
+				label: __('Info Title', 'teqb'),
+				help: __('Title for the bundled service info display.', 'teqb'),
+				value: bundledService.infoTitle || '',
+				onChange: (value) => handleUpdate('infoTitle', value)
+			}),
+			el(TextareaControl, {
+				label: __('Info Description', 'teqb'),
+				help: __('Description text for the bundled service.', 'teqb'),
+				value: bundledService.infoDescription || '',
+				onChange: (value) => handleUpdate('infoDescription', value)
+			}),
+			el(TextControl, {
+				label: __('Info Link', 'teqb'),
+				help: __('Optional link URL for more information.', 'teqb'),
+				value: bundledService.infoLink || '',
+				onChange: (value) => handleUpdate('infoLink', value)
+			}),
+			el('div', { className: 'teqb-inline-actions' },
+				el(Button, {
+					variant: 'secondary',
+					onClick: () => onRemove()
+				}, __('Remove Bundled Service', 'teqb'))
+			)
+		);
+	};
+
+	const ExtrasEditor = ({ extras, onChange }) => {
+		const extrasArray = extras && typeof extras === 'object'
+			? Object.entries(extras).map(([key, value]) => ({ key, value }))
+			: [];
+
+		const handleExtrasChange = (newExtras) => {
+			const extrasObj = {};
+			newExtras.forEach((item) => {
+				if (item.key && item.key.trim()) {
+					extrasObj[item.key.trim()] = parseFloat(item.value) || 0;
+				}
+			});
+			onChange(extrasObj);
+		};
+
+		return el('div', { className: 'teqb-nested-card', style: { border: '1px solid #ddd', padding: '12px', marginTop: '12px' } },
+			el('h4', { style: { marginTop: 0 } }, __('Extras (Additional Options)', 'teqb')),
+			el('p', { style: { fontSize: '13px', color: '#666' } },
+				__('Add additional options for this add-on (e.g., "Blast" option for Cold Sparks).', 'teqb')
+			),
+			extrasArray.map((item, idx) =>
+				el('div', { key: `extra-${idx}`, className: 'teqb-nested-grid', style: { marginBottom: '8px' } },
+					el(TextControl, {
+						label: __('Option Name', 'teqb'),
+						placeholder: __('e.g., Blast', 'teqb'),
+						value: item.key || '',
+						onChange: (value) => {
+							const updated = extrasArray.slice();
+							updated[idx] = { ...item, key: value };
+							handleExtrasChange(updated);
+						}
+					}),
+					el(TextControl, {
+						label: __('Price', 'teqb'),
+						type: 'number',
+						placeholder: __('e.g., 200', 'teqb'),
+						value: item.value || '',
+						onChange: (value) => {
+							const updated = extrasArray.slice();
+							updated[idx] = { ...item, value: value.replace(/[^\d.]/g, '') };
+							handleExtrasChange(updated);
+						}
+					}),
+					el('div', { style: { display: 'flex', alignItems: 'flex-end' } },
+						el(Button, {
+							variant: 'secondary',
+							onClick: () => {
+								const updated = extrasArray.slice();
+								updated.splice(idx, 1);
+								handleExtrasChange(updated);
+							}
+						}, __('Remove', 'teqb'))
+					)
+				)
+			),
+			el(Button, {
+				variant: 'secondary',
+				onClick: () => {
+					const updated = extrasArray.slice();
+					updated.push({ key: '', value: '' });
+					handleExtrasChange(updated);
+				}
+			}, __('Add Extra Option', 'teqb'))
+		);
+	};
+
+	const PackageEditor = ({ pkg, onChange, onRemove, allServices }) => {
 		const handleUpdate = (field, fieldValue) => {
 			const next = { ...pkg, [field]: fieldValue };
 			if (field === 'name' && (!pkg.id || pkg.id === slugify(pkg.name))) {
@@ -191,6 +384,8 @@
 			}
 			onChange(next);
 		};
+
+		const bundledServices = Array.isArray(pkg.bundledServices) ? pkg.bundledServices : [];
 
 		return el('div', { className: 'teqb-nested-card' },
 			el('div', { className: 'teqb-nested-grid' },
@@ -235,6 +430,37 @@
 				value: pkg.bonusOptions || [],
 				onChange: (items) => onChange({ ...pkg, bonusOptions: items })
 			}),
+			el('div', { className: 'teqb-admin-multi' },
+				el('h4', null, __('Bundled Services', 'teqb')),
+				el('p', { style: { fontSize: '13px', color: '#666', marginBottom: '12px' } },
+					__('Services that are automatically included with this package.', 'teqb')
+				),
+				bundledServices.map((bundled, idx) =>
+					el(BundledServiceEditor, {
+						key: `bundled-${idx}`,
+						bundledService: bundled,
+						allServices: allServices || [],
+						onChange: (next) => {
+							const nextBundled = bundledServices.slice();
+							nextBundled[idx] = next;
+							onChange({ ...pkg, bundledServices: nextBundled });
+						},
+						onRemove: () => {
+							const nextBundled = bundledServices.slice();
+							nextBundled.splice(idx, 1);
+							onChange({ ...pkg, bundledServices: nextBundled });
+						}
+					})
+				),
+				el(Button, {
+					variant: 'secondary',
+					onClick: () => {
+						const nextBundled = bundledServices.slice();
+						nextBundled.push(createEmptyBundledService());
+						onChange({ ...pkg, bundledServices: nextBundled });
+					}
+				}, __('Add Bundled Service', 'teqb'))
+			),
 			el('div', { className: 'teqb-inline-actions' },
 				el(Button, {
 					variant: 'secondary',
@@ -311,6 +537,10 @@
 				value: addon.options || [],
 				onChange: (items) => onChange({ ...addon, options: items })
 			}),
+			ExtrasEditor({
+				extras: addon.extras || {},
+				onChange: (extrasObj) => onChange({ ...addon, extras: extrasObj })
+			}),
 			el('div', { className: 'teqb-inline-actions' },
 				el(Button, {
 					variant: 'secondary',
@@ -320,7 +550,7 @@
 		);
 	};
 
-	const ServiceEditor = ({ service, onChange, onRemove }) => {
+	const ServiceEditor = ({ service, onChange, onRemove, allServices }) => {
 		const updateField = (field, value) => {
 			const next = { ...service, [field]: value };
 			if (field === 'label' && (!service.id || service.id === slugify(service.label))) {
@@ -398,6 +628,7 @@
 					el(PackageEditor, {
 						key: `pkg-${idx}`,
 						pkg,
+						allServices: allServices || [],
 						onChange: (next) => {
 							const nextPackages = packages.slice();
 							nextPackages[idx] = next;
@@ -649,6 +880,7 @@
 				el(ServiceEditor, {
 					key: `service-${idx}`,
 					service,
+					allServices: services,
 					onChange: (next) => {
 						const nextServices = services.slice();
 						nextServices[idx] = next;
