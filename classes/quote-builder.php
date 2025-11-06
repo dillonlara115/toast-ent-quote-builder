@@ -13,6 +13,11 @@ if (!defined('ABSPATH')) {
 class teqb_Quote_Builder extends teqb_Base {
     
     /**
+     * Current builder ID being rendered (for asset localization)
+     */
+    protected static $current_builder_id = null;
+    
+    /**
      * Constructor
      */
     public function __construct($config) {
@@ -30,6 +35,9 @@ class teqb_Quote_Builder extends teqb_Base {
         
         // Enqueue scripts and styles
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+        
+        // Localize data after shortcodes are processed
+        add_action('wp_footer', [$this, 'localize_builder_data'], 5);
     }
     
     
@@ -116,6 +124,15 @@ class teqb_Quote_Builder extends teqb_Base {
         // Filter for modifying shortcode attributes
         $atts = apply_filters('teqb_shortcode_attributes', $atts, 'toast_quote_builder');
         
+        // Get builder ID from slug if provided
+        $builder_id = null;
+        if (!empty($atts['builder'])) {
+            $builder_id = $this->get_builder_id_by_slug($atts['builder']);
+        }
+        
+        // Store builder ID for asset localization
+        self::$current_builder_id = $builder_id;
+        
         // Allow developers to hook before the template is rendered
         do_action('teqb_before_template', $atts);
         
@@ -123,6 +140,9 @@ class teqb_Quote_Builder extends teqb_Base {
         ob_start();
         require plugin_dir_path(dirname(__FILE__)) . 'templates/quote-builder-template.php';
         $template_content = ob_get_clean();
+        
+        // Clear builder ID after rendering
+        self::$current_builder_id = null;
         
         // Allow filters on the rendered content
         return apply_filters('teqb_template_content', $template_content, $atts);
@@ -888,5 +908,199 @@ class teqb_Quote_Builder extends teqb_Base {
     public function format_currency($amount) {
         $amount = floatval($amount);
         return '$' . number_format($amount, 2);
+    }
+    
+    /**
+     * Get builder post ID by slug
+     */
+    protected function get_builder_id_by_slug($slug) {
+        $slug = sanitize_title($slug);
+        if (empty($slug)) {
+            return null;
+        }
+        
+        $posts = get_posts([
+            'post_type' => 'teqb_builder',
+            'name' => $slug,
+            'posts_per_page' => 1,
+            'post_status' => 'publish',
+        ]);
+        
+        if (empty($posts)) {
+            return null;
+        }
+        
+        return $posts[0]->ID;
+    }
+    
+    /**
+     * Get builder config from post ID
+     */
+    protected function get_builder_config($post_id) {
+        if (!$post_id) {
+            return null;
+        }
+        
+        $stored = get_post_meta($post_id, '_teqb_builder_config', true);
+        if (empty($stored)) {
+            return null;
+        }
+        
+        $decoded = json_decode($stored, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+        
+        return $decoded;
+    }
+    
+    /**
+     * Transform admin config format to frontend quoteData format
+     */
+    protected function get_quote_data_for_frontend($builder_id) {
+        $config = $this->get_builder_config($builder_id);
+        if (!$config || empty($config['services'])) {
+            return null;
+        }
+        
+        // Transform services array to object keyed by service ID
+        $quote_data = [];
+        foreach ($config['services'] as $service) {
+            if (empty($service['id'])) {
+                continue;
+            }
+            
+            $service_id = $service['id'];
+            $quote_data[$service_id] = [
+                'label' => $service['label'] ?? '',
+                'subtitle' => $service['subtitle'] ?? '',
+                'paragraphs' => $service['paragraphs'] ?? [],
+                'features' => $service['features'] ?? [],
+                'packages' => [],
+                'addons' => [],
+            ];
+            
+            // Transform packages
+            if (!empty($service['packages']) && is_array($service['packages'])) {
+                foreach ($service['packages'] as $pkg) {
+                    $package_data = [
+                        'id' => $pkg['id'] ?? '',
+                        'name' => $pkg['name'] ?? '',
+                        'price' => floatval($pkg['price'] ?? 0),
+                        'includes' => $pkg['includes'] ?? [],
+                    ];
+                    
+                    if (!empty($pkg['bonusOptions'])) {
+                        $package_data['bonusOptions'] = $pkg['bonusOptions'];
+                    }
+                    
+                    if (!empty($pkg['bonusLimit'])) {
+                        $package_data['bonusLimit'] = intval($pkg['bonusLimit']);
+                    }
+                    
+                    if (!empty($pkg['bundledServices']) && is_array($pkg['bundledServices'])) {
+                        $package_data['bundledServices'] = $pkg['bundledServices'];
+                    }
+                    
+                    $quote_data[$service_id]['packages'][] = $package_data;
+                }
+            }
+            
+            // Transform addons
+            if (!empty($service['addons']) && is_array($service['addons'])) {
+                foreach ($service['addons'] as $addon) {
+                    $addon_data = [
+                        'id' => $addon['id'] ?? '',
+                        'name' => $addon['name'] ?? '',
+                    ];
+                    
+                    if (!empty($addon['price'])) {
+                        $addon_data['price'] = floatval($addon['price']);
+                    }
+                    
+                    if (!empty($addon['base'])) {
+                        $addon_data['base'] = floatval($addon['base']);
+                    }
+                    
+                    if (!empty($addon['unit'])) {
+                        $addon_data['unit'] = $addon['unit'];
+                    }
+                    
+                    if (!empty($addon['min'])) {
+                        $addon_data['min'] = intval($addon['min']);
+                    }
+                    
+                    if (!empty($addon['options']) && is_array($addon['options'])) {
+                        $addon_data['options'] = $addon['options'];
+                    }
+                    
+                    if (!empty($addon['extras']) && is_array($addon['extras'])) {
+                        $addon_data['extras'] = $addon['extras'];
+                    }
+                    
+                    $quote_data[$service_id]['addons'][] = $addon_data;
+                }
+            }
+        }
+        
+        // Add bundle discounts and reward catalog
+        $result = [
+            'quoteData' => $quote_data,
+        ];
+        
+        // Transform bundle rules to bundleDiscounts format
+        if (!empty($config['bundles']['rules']) && is_array($config['bundles']['rules'])) {
+            $bundle_discounts = [];
+            foreach ($config['bundles']['rules'] as $rule) {
+                $bundle_discounts[] = [
+                    'minServices' => intval($rule['minServices'] ?? 0),
+                    'discount' => floatval($rule['discount'] ?? 0),
+                    'description' => $rule['description'] ?? '',
+                    'requiresAll' => !empty($rule['requiresAll']),
+                    'freebies' => $rule['freebies'] ?? [],
+                ];
+            }
+            $result['bundleDiscounts'] = $bundle_discounts;
+        }
+        
+        // Add reward catalog
+        if (!empty($config['bundles']['rewards']) && is_array($config['bundles']['rewards'])) {
+            $reward_catalog = [];
+            foreach ($config['bundles']['rewards'] as $key => $reward) {
+                $reward_catalog[$key] = [
+                    'label' => $reward['label'] ?? '',
+                    'pluralLabel' => $reward['pluralLabel'] ?? '',
+                    'optionsHeading' => $reward['optionsLabel'] ?? '',
+                    'options' => $reward['options'] ?? [],
+                ];
+            }
+            $result['rewardCatalog'] = $reward_catalog;
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Localize builder data in wp_footer after shortcodes are processed
+     */
+    public function localize_builder_data() {
+        $builder_id = self::$current_builder_id;
+        if (!$builder_id) {
+            return;
+        }
+        
+        $quote_data = $this->get_quote_data_for_frontend($builder_id);
+        if (!$quote_data) {
+            return;
+        }
+        
+        // Output inline script to set quoteBuilderData
+        ?>
+        <script type="text/javascript">
+        if (typeof window.quoteBuilderData === 'undefined') {
+            window.quoteBuilderData = <?php echo wp_json_encode($quote_data); ?>;
+        }
+        </script>
+        <?php
     }
 }

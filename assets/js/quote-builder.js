@@ -4,7 +4,11 @@
  */
 
 (function () {
-    const quoteData = {
+    // Use dynamic data from backend if available, otherwise fall back to hardcoded data
+    const dynamicData = window.quoteBuilderData || {};
+    
+    // Fallback hardcoded data (kept for backward compatibility)
+    const fallbackQuoteData = {
        
         
         djmc: {
@@ -288,7 +292,7 @@
         'Mirror Me or 360 Photo Booth Upgrade'
     ];
 
-    const rewardCatalog = {
+    const fallbackRewardCatalog = {
         signature_touch: {
             label: 'Signature Touch',
             pluralLabel: 'Signature Touches',
@@ -320,7 +324,7 @@
         return map[num] || String(num);
     };
 
-    const bundleDiscounts = [
+    const fallbackBundleDiscounts = [
         {
             minServices: 2,
             discount: 100,
@@ -353,6 +357,11 @@
             requiresAll: true
         }
     ];
+
+    // Use dynamic data from backend if available, otherwise use fallback hardcoded data
+    const quoteData = dynamicData.quoteData || fallbackQuoteData;
+    const rewardCatalog = dynamicData.rewardCatalog || fallbackRewardCatalog;
+    const bundleDiscounts = dynamicData.bundleDiscounts || fallbackBundleDiscounts;
 
     const formatCurrencyValue = (amount) => {
         return new Intl.NumberFormat('en-US', {
