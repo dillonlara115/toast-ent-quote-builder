@@ -181,11 +181,11 @@ if (!defined('ABSPATH')) {
             <div class="mt-6" x-show="selectedServices.length >= 0">
                 <!-- Tip message for 0-1 services -->
                 <div x-show="selectedServices.length <= 1" class="text-sm text-gray-600">
-                    <p>💡 Tip: Bundle two or more services for bigger savings. <button type="button" @click="showBundleRewardsModal = true" class="text-blue-600 underline hover:text-blue-800">Explore Bundle Rewards</button></p>
+                    <p>💡 Tip: Bundle two or more services for bigger savings. <a href="#" data-bs-toggle="offcanvas" data-bs-target="#bundle" class="text-blue-600 underline hover:text-blue-800" id="bundle">Explore Bundle Rewards</a></p>
                 </div>
                 <!-- Congratulations message for 2-3 services -->
                 <div x-show="selectedServices.length >= 2 && selectedServices.length <= 3" class="text-sm text-green-700 font-medium">
-                    <p>🎉 Congratulations! You've earned service bundle rewards. The more services you bundle, the more you save. <button type="button" @click="showBundleRewardsModal = true" class="text-blue-600 underline hover:text-blue-800">Explore Bundle Rewards</button></p>
+                    <p>🎉 Congratulations! You've earned service bundle rewards. The more services you bundle, the more you save. <a href="#" data-bs-toggle="offcanvas" data-bs-target="#bundle" class="text-blue-600 underline hover:text-blue-800">Explore Bundle Rewards</a></p>
                 </div>
                 <!-- Maximum rewards message for 4-5 services -->
                 <div x-show="selectedServices.length >= 4" class="text-sm text-green-700 font-medium">
@@ -767,9 +767,9 @@ if (!defined('ABSPATH')) {
                     <span>Estimated Total</span>
                     <span x-text="formatCurrency(finalTotal)"></span>
                 </div>
-                <button type="button" class="summary-notes-link" @click="showPricingNotes = true">
+                <a id="pricing-notes" href="#" data-bs-toggle="offcanvas" class="summary-notes-link" data-bs-target="#pricing-notes">
                     Details &amp; Pricing Notes
-                </button>
+</a>
             </div>
         </aside>
     </div><!-- /.quote-layout -->
@@ -847,58 +847,4 @@ if (!defined('ABSPATH')) {
         <div class="pricing-notes-backdrop" @click="showPricingNotes = false"></div>
     </div>
 
-    <div x-show="showBundleRewardsModal" x-cloak class="pricing-notes-overlay" @keydown.escape.window="showBundleRewardsModal = false">
-        <div class="pricing-notes-modal" role="dialog" aria-modal="true" aria-labelledby="bundle-rewards-title">
-            <button type="button" class="pricing-notes-close" @click="showBundleRewardsModal = false" aria-label="Close">
-                &times;
-            </button>
-            <h2 class="pricing-notes-title" id="bundle-rewards-title">Bundle Rewards</h2>
-            <div class="pricing-notes-content">
-                <p class="mb-4">The more services you bundle, the more you save! Here's what you can unlock:</p>
-                <div class="space-y-4">
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="font-semibold text-lg mb-2">Book Any 2 Services</h3>
-                        <p class="text-green-600 font-medium mb-2">$100 Off</p>
-                        <p class="text-sm text-gray-600 mb-2">Plus 1 Free Signature Touch</p>
-                        <ul class="text-sm text-gray-600 list-disc list-inside">
-                            <li>Photo Booth Hours Match Other Service Hours</li>
-                            <li>Lapel Microphone ($95 value)</li>
-                            <li>Custom DJ Mashup ($95 value)</li>
-                            <li>Audio Guestbook Phone ($295 value)</li>
-                            <li>Glow Sticks ($295 value)</li>
-                            <li>Photo Booth Guest Album ($125 value)</li>
-                            <li>Custom Photo Strip Templates ($100 value)</li>
-                        </ul>
-                    </div>
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="font-semibold text-lg mb-2">Book Any 3 Services</h3>
-                        <p class="text-green-600 font-medium mb-2">$200 Off</p>
-                        <p class="text-sm text-gray-600 mb-2">Plus 1 Free Luxury Enhancement</p>
-                        <ul class="text-sm text-gray-600 list-disc list-inside">
-                            <li>Cold Spark Fountains (2 sparks, one use; $595 value)</li>
-                            <li>Dancing on a Cloud ($595 value)</li>
-                            <li>Uplighting ($395 value)</li>
-                            <li>Monogram Projection ($595 value)</li>
-                            <li>Karaoke Experience ($595 value)</li>
-                            <li>Love Letters</li>
-                            <li>Upgraded Backdrops ($495 value)</li>
-                            <li>Mirror Me or 360 Photo Booth Upgrade</li>
-                        </ul>
-                    </div>
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="font-semibold text-lg mb-2">Book Any 4 Services</h3>
-                        <p class="text-green-600 font-medium mb-2">$300 Off</p>
-                        <p class="text-sm text-gray-600 mb-2">Plus 1 Free Signature Touch + 1 Free Luxury Enhancement</p>
-                    </div>
-                    <div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4">
-                        <h3 class="font-semibold text-lg mb-2">Book All 5 Services</h3>
-                        <p class="text-green-600 font-medium mb-2">$400 Off</p>
-                        <p class="text-sm text-gray-600 mb-2">Plus 2 Signature Touches + 2 Luxury Enhancements</p>
-                        <p class="text-sm font-medium text-yellow-800 mt-2">🎉 Maximum savings unlocked!</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="pricing-notes-backdrop" @click="showBundleRewardsModal = false"></div>
-    </div>
 </div><!-- /.toast-quote-builder -->

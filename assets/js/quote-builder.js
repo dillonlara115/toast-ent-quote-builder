@@ -31,6 +31,21 @@
                         '10 LED uplights',
                         'Ceremony mic',
                         'Ultimate Photo Booth'
+                    ],
+                    bundledServices: [
+                        {
+                            serviceId: 'photobooth',
+                            packageId: 'strike_a_pose',
+                            upgradePackages: ['all_around_the_world', 'mirror_mirror'],
+                            message: 'Already included with the Diamond Combo DJ / MC package.',
+                            removalMessage:
+                                'Photo Booth is already included with your Diamond Combo DJ / MC package, so we removed it from your service list.',
+                            upgradeHint: 'You can still explore booth upgrades below.',
+                            infoTitle: 'The Ultimate Photo Booth',
+                            infoDescription:
+                                'This open-air booth delivers instant prints, premium backdrops, a sleek design, and a professional host—perfect for keeping guests entertained all night.',
+                            infoLink: ''
+                        }
                     ]
                 },
                 {
@@ -591,7 +606,6 @@
             formData: defaultFormData(),
             availableServices: [],
             showPricingNotes: false,
-            showBundleRewardsModal: false,
 
             init() {
                 this.availableServices = buildAvailableServices();
@@ -1972,14 +1986,30 @@
                     (snapshot) => snapshot && snapshot.package
                 );
                 const selectedCount = completedServices.length;
+                
+                // Count bundled services included in packages
+                let bundledServiceCount = 0;
+                completedServices.forEach((snapshot) => {
+                    if (snapshot && snapshot.package) {
+                        const packageDef = quoteData[snapshot.serviceId]?.packages?.find(
+                            (pkg) => pkg.id === snapshot.package.id
+                        );
+                        if (packageDef && Array.isArray(packageDef.bundledServices)) {
+                            bundledServiceCount += packageDef.bundledServices.length;
+                        }
+                    }
+                });
+                
+                // Total service count includes both selected services and bundled services
+                const totalServiceCount = selectedCount + bundledServiceCount;
                 const totalServices = Object.keys(quoteData).length;
 
                 let best = { amount: 0, label: '', rewards: [] };
 
                 bundleDiscounts.forEach((rule) => {
                     const meetsRequirement = rule.requiresAll
-                        ? selectedCount === totalServices
-                        : selectedCount >= rule.minServices;
+                        ? totalServiceCount === totalServices
+                        : totalServiceCount >= rule.minServices;
 
                     if (!meetsRequirement) {
                         return;
