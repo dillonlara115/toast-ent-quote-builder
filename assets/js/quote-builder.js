@@ -4,7 +4,10 @@
  */
 
 (function () {
-    const quoteData = {
+    // Location-based quote data
+    const quoteDataByLocation = {
+        // Default/Austin data (existing)
+        austin: {
        
         
         djmc: {
@@ -265,28 +268,185 @@
                 }
             ]
         }
+        },
+        
+        // New Orleans data
+        'new-orleans': {
+        djmc: {
+            label: 'DJ / MC',
+            packages: [
+                {
+                    id: 'essential_experience',
+                    name: 'Essential Experience',
+                    price: 1000,
+                    includes: ['4 hours of entertainment']
+                }
+            ],
+            addons: [
+                { id: 'extra_hour', name: 'Extra Hour', base: 300, unit: 'hour' },
+                { id: 'lapel_mic', name: 'Lapel Microphone', price: 75 },
+                { id: 'cold_sparks', name: 'Cold Spark Fountains', base: 595, min: 4, extras: { Blast: 200 } },
+                { id: 'uplighting', name: 'Uplighting', base: 25, unit: 'light', min: 8 },
+                { id: 'monogram', name: 'Monogram Projection', price: 595 },
+                { id: 'mashup', name: 'Custom Mashup', price: 75 },
+                { id: 'karaoke', name: 'Karaoke Experience', price: 595 },
+                { id: 'glow', name: 'Glow Sticks', price: 295 },
+                { id: 'letters', name: 'Marquee Letters', base: 150, min: 4, unit: 'letter' },
+                { id: 'tv_booth', name: 'TV Booth', price: 795 },
+                { id: 'request_dj', name: 'Request Specific DJ', price: 200, options: ['Tier 3', 'Tier 2', 'Tier 1'], tiered: { 'Tier 3': 200, 'Tier 2': 300, 'Tier 1': 400 } },
+                { id: 'parking_fee', name: 'Parking Fee in the CBD or French Quarter', price: 75 }
+            ]
+        },
+        photography: {
+            label: 'Photography',
+            packages: [
+                {
+                    id: 'picture_perfect',
+                    name: 'Picture Perfect',
+                    price: 1395,
+                    includes: ['4 hours of coverage']
+                }
+            ],
+            addons: [
+                { id: 'bridal_session', name: 'Bridal or Engagement Photo Session', price: 540, options: ['Bridal Session', 'Engagement Session'] },
+                { id: 'lead_extra_hour', name: 'Lead Photographer Extra Hour', base: 335, unit: 'hour' },
+                { id: 'assistant_photographer', name: 'Assistant Photographer', base: 175, unit: 'hour', min: 4 },
+                { id: 'specific_photographer', name: 'Request Specific Photographer', price: 200, options: ['Brad or Heather', 'Steve'], tiered: { 'Brad or Heather': 200, 'Steve': 600 } },
+                { id: 'corporate_session', name: 'Corporate or Micro Session (Up to 2 hours - variable rate)', price: 600 }
+            ]
+        },
+        videography: {
+            label: 'Videography',
+            packages: [
+                {
+                    id: 'love_story',
+                    name: 'Love Story',
+                    price: 1535,
+                    includes: ['4 hours', '4-6 min highlight film', '10-20 min extended film']
+                }
+            ],
+            addons: [
+                { id: 'extra_hours', name: 'Additional Hours', base: 425, unit: 'hour' },
+                { id: 'drone', name: 'Drone Coverage', price: 200 },
+                { id: 'second_videographer', name: 'Second Videographer', base: 150, unit: 'hour', min: 4 },
+                { id: 'specific_videographer', name: 'Request Specific Videographer', price: 200 },
+                { id: 'live_broadcast', name: 'Live Broadcast Ceremony', price: 595 }
+            ]
+        },
+        photobooth: {
+            label: 'Photo Booth',
+            packages: [
+                {
+                    id: 'strike_a_pose',
+                    name: 'The Ultimate Photo Booth - "Strike a Pose"',
+                    price: 900,
+                    includes: [
+                        'Instant prints',
+                        'Choice of 4 premium backdrops',
+                        'Sleek open-air booth design'
+                    ]
+                },
+                {
+                    id: 'roaming_photo_booth',
+                    name: 'The Roaming Photo Booth',
+                    price: 700,
+                    includes: [
+                        'Digital Only',
+                        'Choice of 4 premium backdrops',
+                        'Sleek open-air booth design',
+                        'Photo template, Boomerang, GIF or Video'
+                    ],
+                    newOrleansExclusive: true
+                },
+                {
+                    id: 'video_recording_booth',
+                    name: 'Video Recording Booth',
+                    price: 1000,
+                    includes: [
+                        'Guests record personal messages',
+                        'Professionally edited highlight reel of all clips captured'
+                    ],
+                    newOrleansExclusive: true
+                }
+            ],
+            addons: [
+                { id: 'extra_hour', name: 'Additional Hour', base: 300, unit: 'hour' },
+                { id: 'guest_album', name: 'Photo Booth Guest Album', price: 100 },
+                { id: 'photo_strip', name: 'Custom Photo Strip Template', price: 100 },
+                {
+                    id: 'upgraded_backdrops',
+                    name: 'Upgraded Backdrops',
+                    price: 495,
+                    options: ['Greenery Wall', 'Flower Wall', 'Custom Backdrop']
+                },
+                { id: 'ai_theme_upgrade', name: 'AI or Theme Software Upgrade (COMING IN 2026)', price: 495, newOrleansExclusive: true }
+            ]
+        }
+        }
     };
 
-    const signatureTouches = [
-        'Photo Booth Hours Match Other Service Hours',
-        'Lapel Microphone ($95 value)',
-        'Custom DJ Mashup ($95 value)',
-        'Audio Guestbook Phone ($295 value)',
-        'Glow Sticks ($295 value)',
-        'Photo Booth Guest Album ($125 value)',
-        'Custom Photo Strip Templates ($100 value)'
-    ];
+    // Get location from config or default to 'austin'
+    const getLocation = () => {
+        if (typeof quoteBuilderConfig !== 'undefined' && quoteBuilderConfig.location) {
+            return quoteBuilderConfig.location;
+        }
+        // Fallback: try to detect from URL
+        const url = window.location.href.toLowerCase();
+        if (url.includes('new-orleans') || url.includes('neworleans')) {
+            return 'new-orleans';
+        }
+        return 'austin';
+    };
 
-    const luxuryEnhancements = [
-        'Cold Spark Fountains (2 sparks, one use; $595 value)',
-        'Dancing on a Cloud ($595 value)',
-        'Uplighting ($395 value)',
-        'Monogram Projection ($595 value)',
-        'Karaoke Experience ($595 value)',
-        'Love Letters',
-        'Upgraded Backdrops ($495 value)',
-        'Mirror Me or 360 Photo Booth Upgrade'
-    ];
+    // Get quote data for current location
+    const location = getLocation();
+    const quoteData = quoteDataByLocation[location] || quoteDataByLocation.austin;
+
+    // Location-based signature touches and luxury enhancements
+    const signatureTouchesByLocation = {
+        austin: [
+            'Photo Booth Hours Match Other Service Hours',
+            'Lapel Microphone ($95 value)',
+            'Custom DJ Mashup ($95 value)',
+            'Audio Guestbook Phone ($295 value)',
+            'Glow Sticks ($295 value)',
+            'Photo Booth Guest Album ($125 value)',
+            'Custom Photo Strip Templates ($100 value)'
+        ],
+        'new-orleans': [
+            'Photo Booth Hours Match Other Service Hours',
+            'Lapel Microphone ($75 value)',
+            'Custom DJ Mashup ($75 value)',
+            'Glow Sticks ($295 value)',
+            'Photo Booth Guest Album ($100 value)',
+            'Custom Photo Strip Templates ($100 value)'
+        ]
+    };
+
+    const luxuryEnhancementsByLocation = {
+        austin: [
+            'Cold Spark Fountains (2 sparks, one use; $595 value)',
+            'Dancing on a Cloud ($595 value)',
+            'Uplighting ($395 value)',
+            'Monogram Projection ($595 value)',
+            'Karaoke Experience ($595 value)',
+            'Love Letters',
+            'Upgraded Backdrops ($495 value)',
+            'Mirror Me or 360 Photo Booth Upgrade'
+        ],
+        'new-orleans': [
+            'Cold Spark Fountains (4 sparks, one use; $595 value)',
+            'Uplighting (8 lights; $200 value)',
+            'Monogram Projection ($595 value)',
+            'Karaoke Experience ($595 value)',
+            'Love Letters',
+            'Upgraded Backdrops ($495 value)',
+            'AI or Theme Software Upgrade ($495 value)'
+        ]
+    };
+
+    const signatureTouches = signatureTouchesByLocation[location] || signatureTouchesByLocation.austin;
+    const luxuryEnhancements = luxuryEnhancementsByLocation[location] || luxuryEnhancementsByLocation.austin;
 
     const rewardCatalog = {
         signature_touch: {
@@ -320,39 +480,69 @@
         return map[num] || String(num);
     };
 
-    const bundleDiscounts = [
-        {
-            minServices: 2,
-            discount: 100,
-            description: 'Book Any 2 Services: $100 Off + 1 Free Signature Touch',
-            freebies: [{ type: 'signature_touch', quantity: 1 }]
-        },
-        {
-            minServices: 3,
-            discount: 200,
-            description: 'Book Any 3 Services: $200 Off + 1 Free Luxury Enhancement',
-            freebies: [{ type: 'luxury_enhancement', quantity: 1 }]
-        },
-        {
-            minServices: 4,
-            discount: 300,
-            description: 'Book Any 4 Services: $300 Off + 1 Free Signature Touch + 1 Free Luxury Enhancement',
-            freebies: [
-                { type: 'signature_touch', quantity: 1 },
-                { type: 'luxury_enhancement', quantity: 1 }
-            ]
-        },
-        {
-            minServices: 5,
-            discount: 400,
-            description: 'Book All 5 Services: $400 Off + 2 Signature Touches + 2 Luxury Enhancements',
-            freebies: [
-                { type: 'signature_touch', quantity: 2 },
-                { type: 'luxury_enhancement', quantity: 2 }
-            ],
-            requiresAll: true
-        }
-    ];
+    // Location-based bundle discounts
+    const bundleDiscountsByLocation = {
+        austin: [
+            {
+                minServices: 2,
+                discount: 100,
+                description: 'Book Any 2 Services: $100 Off + 1 Free Signature Touch',
+                freebies: [{ type: 'signature_touch', quantity: 1 }]
+            },
+            {
+                minServices: 3,
+                discount: 200,
+                description: 'Book Any 3 Services: $200 Off + 1 Free Luxury Enhancement',
+                freebies: [{ type: 'luxury_enhancement', quantity: 1 }]
+            },
+            {
+                minServices: 4,
+                discount: 300,
+                description: 'Book Any 4 Services: $300 Off + 1 Free Signature Touch + 1 Free Luxury Enhancement',
+                freebies: [
+                    { type: 'signature_touch', quantity: 1 },
+                    { type: 'luxury_enhancement', quantity: 1 }
+                ]
+            },
+            {
+                minServices: 5,
+                discount: 400,
+                description: 'Book All 5 Services: $400 Off + 2 Signature Touches + 2 Luxury Enhancements',
+                freebies: [
+                    { type: 'signature_touch', quantity: 2 },
+                    { type: 'luxury_enhancement', quantity: 2 }
+                ],
+                requiresAll: true
+            }
+        ],
+        'new-orleans': [
+            {
+                minServices: 2,
+                discount: 100,
+                description: 'Book Any 2 Services: $100 Off + 1 Free Signature Touch',
+                freebies: [{ type: 'signature_touch', quantity: 1 }]
+            },
+            {
+                minServices: 3,
+                discount: 200,
+                description: 'Book Any 3 Services: $200 Off + 1 Free Luxury Enhancement',
+                freebies: [{ type: 'luxury_enhancement', quantity: 1 }]
+            },
+            {
+                minServices: 4,
+                discount: 300,
+                description: 'Book All 4 Services: $300 Off + 2 Signature Touches + 2 Luxury Enhancements',
+                freebies: [
+                    { type: 'signature_touch', quantity: 2 },
+                    { type: 'luxury_enhancement', quantity: 2 }
+                ],
+                requiresAll: true
+            }
+        ]
+    };
+
+    // Get bundle discounts for current location
+    const bundleDiscounts = bundleDiscountsByLocation[location] || bundleDiscountsByLocation.austin;
 
     const formatCurrencyValue = (amount) => {
         return new Intl.NumberFormat('en-US', {
@@ -1740,7 +1930,10 @@
                         }
                     } else {
                         // Not included in package - charge normally
-                        if (addOnDef.price) {
+                        // Check for tiered pricing first
+                        if (addOnDef.tiered && stored.selectedOption && addOnDef.tiered[stored.selectedOption] !== undefined) {
+                            total += Number(addOnDef.tiered[stored.selectedOption]);
+                        } else if (addOnDef.price) {
                             total += Number(addOnDef.price);
                         }
                         if (addOnDef.base) {
@@ -1766,7 +1959,9 @@
                         name: addOnDef.name,
                         quantity: addOnDef.base ? quantity : null,
                         unit: addOnDef.base ? (addOnDef.unit || '') : '',
-                        price: addOnDef.price || addOnDef.base || 0,
+                        price: (addOnDef.tiered && stored.selectedOption && addOnDef.tiered[stored.selectedOption] !== undefined) 
+                            ? addOnDef.tiered[stored.selectedOption] 
+                            : (addOnDef.price || addOnDef.base || 0),
                         total,
                         extras: extrasLabels,
                         options: stored.selectedOption ? [stored.selectedOption] : [],

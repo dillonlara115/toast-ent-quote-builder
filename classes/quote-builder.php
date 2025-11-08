@@ -35,6 +35,26 @@ class teqb_Quote_Builder extends teqb_Base {
     
     
     /**
+     * Get current location from shortcode attributes or default
+     */
+    private function get_current_location() {
+        global $post;
+        
+        // Try to get from shortcode attributes if available
+        if (isset($GLOBALS['teqb_current_location'])) {
+            return $GLOBALS['teqb_current_location'];
+        }
+        
+        // Try to detect from URL
+        $url = isset($_SERVER['REQUEST_URI']) ? strtolower($_SERVER['REQUEST_URI']) : '';
+        if (strpos($url, 'new-orleans') !== false || strpos($url, 'neworleans') !== false) {
+            return 'new-orleans';
+        }
+        
+        return 'austin';
+    }
+    
+    /**
      * Enqueue scripts and styles
      */
     public function enqueue_assets() {
@@ -99,6 +119,7 @@ class teqb_Quote_Builder extends teqb_Base {
             [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('quote_builder_nonce'),
+                'location' => $this->get_current_location(),
             ]
         );
     }
@@ -112,6 +133,9 @@ class teqb_Quote_Builder extends teqb_Base {
             'location' => 'austin',
             'builder' => '',
         ], $atts, 'toast_quote_builder');
+        
+        // Store location in global for use in enqueue_assets
+        $GLOBALS['teqb_current_location'] = sanitize_text_field($atts['location']);
         
         // Filter for modifying shortcode attributes
         $atts = apply_filters('teqb_shortcode_attributes', $atts, 'toast_quote_builder');
