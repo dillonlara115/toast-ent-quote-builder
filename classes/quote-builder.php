@@ -16,6 +16,11 @@ class teqb_Quote_Builder extends teqb_Base {
      * Current builder ID being rendered (for asset localization)
      */
     protected static $current_builder_id = null;
+
+    /**
+     * Track which builders have already been localized during this request.
+     */
+    protected static $localized_builders = [];
     
     /**
      * Constructor
@@ -90,7 +95,7 @@ class teqb_Quote_Builder extends teqb_Base {
             $css_version,
             'all'
         );
-        // Custom JS - Load in header with Alpine.js as dependency so the component is available
+        // Custom JS - Load in header so Alpine can find the component factory before parsing the template
         wp_enqueue_script(
             'quote-builder-js',
             plugin_dir_url(dirname(__FILE__)) . 'assets/js/quote-builder.js',
@@ -127,11 +132,16 @@ class teqb_Quote_Builder extends teqb_Base {
         // Get builder ID from slug if provided
         $builder_id = null;
         if (!empty($atts['builder'])) {
-            $builder_id = $this->get_builder_id_by_slug($atts['builder']);
+            $normalized_slug = $this->normalize_builder_slug($atts['builder']);
+            if ($normalized_slug) {
+                $builder_id = $this->get_builder_id_by_slug($normalized_slug);
+                $atts['builder'] = $normalized_slug;
+            }
         }
         
         // Store builder ID for asset localization
         self::$current_builder_id = $builder_id;
+        $this->ensure_builder_data_localized($builder_id);
         
         // Allow developers to hook before the template is rendered
         do_action('teqb_before_template', $atts);
@@ -140,9 +150,6 @@ class teqb_Quote_Builder extends teqb_Base {
         ob_start();
         require plugin_dir_path(dirname(__FILE__)) . 'templates/quote-builder-template.php';
         $template_content = ob_get_clean();
-        
-        // Clear builder ID after rendering
-        self::$current_builder_id = null;
         
         // Allow filters on the rendered content
         return apply_filters('teqb_template_content', $template_content, $atts);
@@ -191,17 +198,27 @@ class teqb_Quote_Builder extends teqb_Base {
             }
         }
 
-        if (!$builder_slug) {
+        return $this->normalize_builder_slug($builder_slug);
+    }
+    
+    /**
+     * Normalize builder slugs regardless of attribute format.
+     */
+    protected function normalize_builder_slug($builder_slug) {
+        if (!$builder_slug || !is_string($builder_slug)) {
             return '';
         }
 
-        $builder_slug = trim($builder_slug);
+        $builder_slug = sanitize_title(trim($builder_slug));
+        if ($builder_slug === '') {
+            return '';
+        }
 
         if (strpos($builder_slug, 'builder-') === 0) {
             $builder_slug = substr($builder_slug, strlen('builder-'));
         }
 
-        return sanitize_title($builder_slug);
+        return $builder_slug;
     }
     
     /**
@@ -914,23 +931,48 @@ class teqb_Quote_Builder extends teqb_Base {
      * Get builder post ID by slug
      */
     protected function get_builder_id_by_slug($slug) {
+        if (!$slug) {
+            return null;
+        }
+
+        // Allow numeric IDs to be passed directly.
+        if (is_numeric($slug)) {
+            $builder_id = absint($slug);
+            return $builder_id > 0 ? $builder_id : null;
+        }
+
         $slug = sanitize_title($slug);
         if (empty($slug)) {
             return null;
         }
-        
-        $posts = get_posts([
-            'post_type' => 'teqb_builder',
-            'name' => $slug,
-            'posts_per_page' => 1,
-            'post_status' => 'publish',
-        ]);
-        
-        if (empty($posts)) {
-            return null;
+
+        $candidate_slugs = array_unique(array_filter([
+            $slug,
+            strpos($slug, 'builder-') === 0 ? substr($slug, strlen('builder-')) : '',
+            'builder-' . $slug,
+        ]));
+
+        foreach ($candidate_slugs as $candidate) {
+            $post = get_page_by_path($candidate, OBJECT, 'teqb_builder');
+            if ($post) {
+                return $post->ID;
+            }
         }
-        
-        return $posts[0]->ID;
+
+        foreach ($candidate_slugs as $candidate) {
+            $posts = get_posts([
+                'post_type' => 'teqb_builder',
+                'name' => $candidate,
+                'posts_per_page' => 1,
+                'post_status' => 'publish',
+            ]);
+
+            if (!empty($posts)) {
+                return $posts[0]->ID;
+            }
+        }
+
+        return null;
     }
     
     /**
@@ -942,16 +984,14 @@ class teqb_Quote_Builder extends teqb_Base {
         }
         
         $stored = get_post_meta($post_id, '_teqb_builder_config', true);
-        if (empty($stored)) {
-            return null;
+        if (!empty($stored)) {
+            $decoded = json_decode($stored, true);
+            if (is_array($decoded) && !empty($decoded['services']) && is_array($decoded['services'])) {
+                return $decoded;
+            }
         }
-        
-        $decoded = json_decode($stored, true);
-        if (!is_array($decoded)) {
-            return null;
-        }
-        
-        return $decoded;
+
+        return $this->maybe_seed_builder_config($post_id);
     }
     
     /**
@@ -1079,28 +1119,101 @@ class teqb_Quote_Builder extends teqb_Base {
         
         return $result;
     }
+
+    /**
+     * Seed builder configuration from packaged dataset when no meta exists.
+     */
+    protected function maybe_seed_builder_config($builder_id) {
+        $seed_file = apply_filters(
+            'teqb_builder_seed_file',
+            plugin_dir_path(dirname(__FILE__)) . 'sanitized_test.json',
+            $builder_id
+        );
+
+        if (!$seed_file || !file_exists($seed_file)) {
+            return null;
+        }
+
+        $raw = file_get_contents($seed_file);
+        if (!$raw) {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || empty($decoded['services'])) {
+            return null;
+        }
+
+        $config = [
+            'services' => $decoded['services'],
+            'bundles' => $decoded['bundles'] ?? [
+                'rules' => [],
+                'rewards' => [],
+            ],
+            'form' => $decoded['form'] ?? [
+                'require_phone' => true,
+                'require_event_date' => false,
+                'success_message' => '',
+                'confirmation_copy' => '',
+            ],
+            'notifications' => $decoded['notifications'] ?? [
+                'email' => '',
+            ],
+        ];
+
+        $config = apply_filters('teqb_seed_builder_config', $config, $builder_id, $seed_file);
+
+        update_post_meta($builder_id, '_teqb_builder_config', wp_json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $config;
+    }
     
     /**
      * Localize builder data in wp_footer after shortcodes are processed
      */
     public function localize_builder_data() {
         $builder_id = self::$current_builder_id;
-        if (!$builder_id) {
+        if ($builder_id) {
+            $this->ensure_builder_data_localized($builder_id, true);
+            self::$current_builder_id = null;
+        }
+    }
+
+    /**
+     * Ensure builder data is available to the front-end script.
+     *
+     * @param int  $builder_id        Builder post ID.
+     * @param bool $force_footer_echo Whether to echo script directly (used in footer fallback).
+     */
+    protected function ensure_builder_data_localized($builder_id, $force_footer_echo = false) {
+        if (!$builder_id || isset(self::$localized_builders[$builder_id])) {
             return;
         }
-        
+
         $quote_data = $this->get_quote_data_for_frontend($builder_id);
         if (!$quote_data) {
             return;
         }
-        
-        // Output inline script to set quoteBuilderData
-        ?>
-        <script type="text/javascript">
-        if (typeof window.quoteBuilderData === 'undefined') {
-            window.quoteBuilderData = <?php echo wp_json_encode($quote_data); ?>;
+
+        if ($force_footer_echo || $this->is_script_printed('quote-builder-js')) {
+            printf('<script type="text/javascript">window.quoteBuilderData = %s;</script>', wp_json_encode($quote_data));
+        } else {
+            wp_localize_script('quote-builder-js', 'quoteBuilderData', $quote_data);
         }
-        </script>
-        <?php
+
+        self::$localized_builders[$builder_id] = true;
+    }
+
+    /**
+     * Determine if a script handle has already been printed.
+     */
+    protected function is_script_printed($handle) {
+        global $wp_scripts;
+
+        if (!isset($wp_scripts) || !isset($wp_scripts->done)) {
+            return false;
+        }
+
+        return in_array($handle, (array) $wp_scripts->done, true);
     }
 }

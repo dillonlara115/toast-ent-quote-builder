@@ -18,6 +18,7 @@
 		Button,
 		CheckboxControl,
 		SelectControl,
+		FormTokenField,
 		Notice
 	} = wp.components;
 
@@ -198,16 +199,13 @@
 			}))
 			: [];
 
-		// Get upgrade packages for the selected service
-		const upgradePackageOptions = selectedService && Array.isArray(selectedService.packages)
-			? selectedService.packages.map((pkg) => ({
-				value: pkg.id || '',
-				label: pkg.name || pkg.id || ''
-			}))
-			: [];
-
 		const upgradePackagesValue = Array.isArray(bundledService.upgradePackages)
 			? bundledService.upgradePackages
+			: [];
+		const upgradeSuggestions = selectedService && Array.isArray(selectedService.packages)
+			? selectedService.packages
+				.map((pkg) => pkg.id || '')
+				.filter(Boolean)
 			: [];
 
 		return el('div', { className: 'teqb-nested-card', style: { border: '1px solid #ddd', padding: '12px', marginBottom: '12px' } },
@@ -232,18 +230,21 @@
 					disabled: !bundledService.serviceId
 				})
 			),
-			el(TextareaControl, {
-				label: __('Upgrade Packages', 'teqb'),
-				help: __('Enter package IDs that can be used as upgrades, one per line.', 'teqb'),
-				value: upgradePackagesValue.join('\n'),
-				placeholder: __('e.g., all_around_the_world\nmirror_mirror', 'teqb'),
-				onChange: (text) => {
-					const items = text
-						.split('\n')
-						.map((line) => line.trim())
-						.filter(Boolean);
-					handleUpdate('upgradePackages', items);
-				}
+			el(FormTokenField, {
+				label: __('Upgradeable Packages', 'teqb'),
+				help: __('Pick which packages can replace the bundled option (type to add custom IDs).', 'teqb'),
+				value: upgradePackagesValue,
+				suggestions: upgradeSuggestions,
+				disabled: !bundledService.serviceId,
+				onChange: (tokens) => {
+					const formatted = Array.isArray(tokens)
+						? tokens.map((token) => (token || '').trim()).filter(Boolean)
+						: [];
+					handleUpdate('upgradePackages', formatted);
+				},
+				placeholder: upgradeSuggestions.length
+					? __('Start typing a package ID…', 'teqb')
+					: __('Select a service to choose packages…', 'teqb')
 			}),
 			el(TextControl, {
 				label: __('Message', 'teqb'),
