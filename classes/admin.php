@@ -64,6 +64,11 @@ class teqb_Admin {
 		add_filter('manage_teqb_addon_posts_columns', array($this, 'addon_columns'));
 		add_action('manage_teqb_addon_posts_custom_column', array($this, 'render_addon_columns'), 10, 2);
 		add_filter('manage_edit-teqb_addon_sortable_columns', array($this, 'addon_sortable_columns'));
+		
+		// Quote Builder columns
+		add_filter('manage_teqb_builder_posts_columns', array($this, 'builder_columns'));
+		add_action('manage_teqb_builder_posts_custom_column', array($this, 'render_builder_columns'), 10, 2);
+		add_action('admin_footer-edit.php', array($this, 'enqueue_builder_list_scripts'));
 		add_action('restrict_manage_posts', array($this, 'add_addon_service_filter'));
 		add_action('parse_query', array($this, 'filter_addons_by_service'));
 		add_filter('posts_clauses', array($this, 'sort_addons_by_service_name'), 10, 2);
@@ -2722,5 +2727,104 @@ class teqb_Admin {
 		$clauses['orderby'] = "service_posts.post_title {$order}, {$wpdb->posts}.menu_order ASC";
 		
 		return $clauses;
+	}
+	
+	/**
+	 * Quote Builder columns
+	 */
+	public function builder_columns($columns) {
+		// Insert shortcode column before date
+		$date = isset($columns['date']) ? $columns['date'] : '';
+		unset($columns['date']);
+		
+		$columns['shortcode'] = __('Shortcode', 'teqb');
+		
+		if ($date) {
+			$columns['date'] = $date;
+		}
+		
+		return $columns;
+	}
+	
+	/**
+	 * Render Quote Builder columns
+	 */
+	public function render_builder_columns($column, $post_id) {
+		if ($column === 'shortcode') {
+			$post = get_post($post_id);
+			if (!$post) {
+				return;
+			}
+			
+			$slug = $post->post_name;
+			if (empty($slug)) {
+				$slug = sanitize_title($post->post_title);
+			}
+			
+			$shortcode = '[toast_quote_builder builder="' . esc_attr($slug) . '"]';
+			$shortcode_id = 'teqb-shortcode-' . $post_id;
+			
+			?>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<code id="<?php echo esc_attr($shortcode_id); ?>" style="background: #f0f0f1; padding: 4px 8px; border-radius: 3px; font-size: 12px; flex: 1;"><?php echo esc_html($shortcode); ?></code>
+				<button type="button" 
+						class="button button-small teqb-copy-shortcode" 
+						data-shortcode="<?php echo esc_attr($shortcode); ?>"
+						data-post-id="<?php echo esc_attr($post_id); ?>"
+						style="min-width: auto; padding: 4px 8px;"
+						title="<?php esc_attr_e('Copy shortcode', 'teqb'); ?>">
+					<span class="dashicons dashicons-admin-page" style="font-size: 16px; width: 16px; height: 16px;"></span>
+				</button>
+			</div>
+			<?php
+		}
+	}
+	
+	/**
+	 * Enqueue scripts for builder list page
+	 */
+	public function enqueue_builder_list_scripts() {
+		$screen = get_current_screen();
+		if (!$screen || $screen->post_type !== 'teqb_builder') {
+			return;
+		}
+		?>
+		<script type="text/javascript">
+		(function($) {
+			$(document).ready(function() {
+				$(document).on('click', '.teqb-copy-shortcode', function(e) {
+					e.preventDefault();
+					var $button = $(this);
+					var shortcode = $button.data('shortcode');
+					
+					// Create temporary textarea to copy text
+					var $temp = $('<textarea>');
+					$('body').append($temp);
+					$temp.val(shortcode).select();
+					
+					try {
+						var successful = document.execCommand('copy');
+						if (successful) {
+							// Show feedback
+							var $icon = $button.find('.dashicons');
+							var originalClass = $icon.attr('class');
+							$icon.attr('class', 'dashicons dashicons-yes-alt');
+							$button.css('color', '#00a32a');
+							
+							setTimeout(function() {
+								$icon.attr('class', originalClass);
+								$button.css('color', '');
+							}, 2000);
+						}
+					} catch (err) {
+						console.error('Failed to copy shortcode:', err);
+					}
+					
+					$temp.remove();
+				});
+			});
+		})(jQuery);
+		</script>
+		<?php
 	}
 }
