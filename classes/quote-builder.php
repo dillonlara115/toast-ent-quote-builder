@@ -63,6 +63,9 @@ class teqb_Quote_Builder extends teqb_Base {
         if (strpos($url, 'new-orleans') !== false || strpos($url, 'neworleans') !== false) {
             return 'new-orleans';
         }
+        if (strpos($url, 'washington') !== false || strpos($url, '-dc') !== false || (strpos($url, 'dc') !== false && strpos($url, 'pricing') !== false)) {
+            return 'washington';
+        }
         
         return 'austin';
     }

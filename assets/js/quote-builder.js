@@ -4,6 +4,7 @@
  */
 
 (function () {
+    console.log('Quote Builder loaded');
     // Location-based quote data
     const quoteDataByLocation = {
         // Default/Austin data (existing)
@@ -382,6 +383,224 @@
                 { id: 'ai_theme_upgrade', name: 'AI or Theme Software Upgrade (COMING IN 2026)', price: 495, newOrleansExclusive: true }
             ]
         }
+        },
+        
+        // Washington DC data
+        'washington': {
+        djmc: {
+            label: 'DJ / MC',
+            packages: [
+                {
+                    id: 'gold_dj_package',
+                    name: 'Gold DJ Package',
+                    price: 1295,
+                    includes: [
+                        '4 Hours of Professional DJ & MC Service',
+                        'Unlimited Consultations & Personalized Planning',
+                        'Pro Sound System (up to 300 guests)',
+                        'Wireless Handheld Microphone',
+                        'DJ Façade for a Clean Look',
+                        'Backup Equipment for All Gear',
+                        'Online Planning Tools with Creative Control',
+                        'Free Setup & Breakdown',
+                        'Free Travel Within 30 Miles of DC'
+                    ]
+                },
+                {
+                    id: 'platinum_dj_package',
+                    name: 'Platinum DJ Package',
+                    price: 1995,
+                    includes: [
+                        'Unlimited DJ & MC Service (for the entire event)',
+                        '10 LED Uplights for Stunning Ambiance',
+                        'Pro Sound System (up to 300 guests)',
+                        'Wireless Handheld Microphone'
+                    ]
+                },
+                {
+                    id: 'diamond_combo_dj_package',
+                    name: 'Diamond Combo DJ Package',
+                    price: 2995,
+                    includes: [
+                        'Unlimited DJ & MC Service (from 30 mins pre-ceremony to midnight)',
+                        'Ultimate Photo Booth Included (all night)',
+                        '10 LED Uplights',
+                        'Ceremony Lapel Mic + Extra Speaker',
+                        'Dance Lighting (2 Moving Heads on Totems)',
+                        'Pro Sound System (up to 300 guests)',
+                        'Wireless Handheld Microphone',
+                        'DJ Façade for a Clean, Modern Look',
+                        'Unlimited Consultations & Planning Tools',
+                        'Backup Equipment',
+                        'Free Setup & Breakdown'
+                    ],
+                    bundledServices: [
+                        {
+                            serviceId: 'photobooth',
+                            packageId: 'ultimate_photo_booth_dc',
+                            upgradePackages: [],
+                            message: 'Already included with the Diamond Combo DJ Package.',
+                            removalMessage:
+                                'Photo Booth is already included with your Diamond Combo DJ Package, so we removed it from your service list.',
+                            upgradeHint: '',
+                            infoTitle: 'The Ultimate Photo Booth',
+                            infoDescription:
+                                'This open-air booth delivers instant prints, premium backdrops, a sleek design, and a professional host—perfect for keeping guests entertained all night.',
+                            infoLink: ''
+                        }
+                    ]
+                }
+            ],
+            addons: [
+                { id: 'extra_hour', name: 'Extra Hour', base: 325, unit: 'hour' },
+                { id: 'ceremony_sound', name: 'Add Ceremony Sound Package', price: 300 },
+                { id: 'cold_sparks', name: 'Cold Spark Fountains', base: 795, min: 2, extras: { '4 Sparks': 200, 'Additional Uses': 200 } },
+                { id: 'cloud', name: 'Dancing on a Cloud', price: 795 },
+                { id: 'uplighting', name: 'Uplighting (10 LED Lights)', price: 395 },
+                { id: 'dance_lighting', name: 'Dance Floor Lighting (2 Moving Heads on Totems)', price: 395 },
+                { id: 'tv_booth', name: 'TV DJ Booth (For Slideshows/Monogram)', price: 395 },
+                { id: 'mashup', name: 'Custom Song Mashup', price: 95 },
+                { id: 'guestbook', name: 'Audio Guestbook Phone', price: 295 },
+                { id: 'glow', name: 'Glow Sticks (100 Count)', price: 295 },
+                { id: 'special_reservation', name: 'Special Reservation (Lock-in Premium Date)', price: 250 }
+            ]
+        },
+        photography: {
+            label: 'Photography',
+            packages: [
+                {
+                    id: 'package_1',
+                    name: 'Package 1',
+                    price: 1595,
+                    includes: [
+                        '4 Hours with Lead Photographer',
+                        'Unlimited Consultations',
+                        'Unlimited Wedding Day Locations',
+                        'High-Quality Editing',
+                        'Online Gallery with Full Print Rights',
+                        'Fast Turnaround',
+                        'Customizable Shot List'
+                    ]
+                },
+                {
+                    id: 'package_2',
+                    name: 'Package 2',
+                    price: 2395,
+                    includes: [
+                        '6 Hours with Lead Photographer',
+                        'BONUS: Engagement or Bridal Session ($595 value)',
+                        'All Features from Package 1'
+                    ]
+                },
+                {
+                    id: 'package_3',
+                    name: 'Package 3',
+                    price: 3995,
+                    includes: [
+                        '8 Hours with 2 Photographers',
+                        'BONUS: Engagement or Bridal Session ($595 value)',
+                        'All Features from Package 1',
+                        'BONUS: One 11x14 Fine Art Print'
+                    ]
+                },
+                {
+                    id: 'package_4',
+                    name: 'Package 4',
+                    price: 4995,
+                    includes: [
+                        'Full-Day Coverage with 2 Photographers',
+                        'BONUS: Engagement + Bridal Sessions ($995 value)',
+                        'BONUS: 16x24 Fine Art Canvas',
+                        'Priority Editing',
+                        'All Features from Package 1'
+                    ]
+                }
+            ],
+            addons: [
+                { id: 'bridal_session', name: 'Engagement or Bridal Session', price: 595, options: ['Engagement Session', 'Bridal Session', 'Both'] },
+                { id: 'expedited_editing', name: 'Expedited Editing', price: 300 },
+                { id: 'lead_extra_hour', name: 'Extra Hours (Lead)', base: 400, unit: 'hour' },
+                { id: 'assistant_photographer', name: 'Assistant Photographer', base: 100, unit: 'hour' },
+                { id: 'special_reservation', name: 'Special Reservation', price: 250 }
+            ]
+        },
+        videography: {
+            label: 'Videography',
+            packages: [
+                {
+                    id: 'package_a',
+                    name: 'Package A',
+                    price: 1595,
+                    includes: [
+                        'Up to 4 Hours Coverage',
+                        '1-Min Social Highlight',
+                        '4-6 Minute Cinematic Film',
+                        '20-30 Minute Extended Film',
+                        'Multi-Camera Setup',
+                        'HD Digital Delivery + Free Online Hosting',
+                        'Fast Turnaround',
+                        'Free Travel Within 30 Miles'
+                    ]
+                },
+                {
+                    id: 'package_b',
+                    name: 'Package B',
+                    price: 2395,
+                    includes: [
+                        'Up to 6 Hours Coverage',
+                        'Free Drone Footage ($400 value)',
+                        '1-Min Social Highlight',
+                        '5-7 Minute Cinematic Film',
+                        '20-30 Minute Extended Film',
+                        'All Features from Package A'
+                    ]
+                },
+                {
+                    id: 'package_c',
+                    name: 'Package C',
+                    price: 3995,
+                    includes: [
+                        'Full-Day Coverage',
+                        '1-Min Social Highlight',
+                        '10-15 Minute Cinematic Film',
+                        '60-90 Minute Extended Film (Full Ceremony, Speeches, Big Moments)',
+                        'Free Drone Footage + Pro Audio Recording',
+                        'Multi-Camera Setup'
+                    ]
+                }
+            ],
+            addons: [
+                { id: 'extra_hours', name: 'Additional Hours', base: 400, unit: 'hour' },
+                { id: 'raw_pre', name: 'Raw Footage (Before Event)', price: 300 },
+                { id: 'raw_post', name: 'Raw Footage (After Event, If Available)', price: 500 },
+                { id: 'drone', name: 'Drone Coverage', price: 400 },
+                { id: 'second_videographer', name: '2nd Videographer', base: 200, unit: 'hour', min: 4 }
+            ]
+        },
+        photobooth: {
+            label: 'Photo Booth',
+            packages: [
+                {
+                    id: 'ultimate_photo_booth_dc',
+                    name: 'Ultimate Photo Booth',
+                    price: 795,
+                    includes: [
+                        '3 Hours of Service',
+                        'Unlimited Prints + Digital Gallery',
+                        'On-site Photo Booth Operator',
+                        'Fun Prop Collection',
+                        'Choice of 4 Premium Backdrops',
+                        'Sleek Open-Air Design',
+                        'Pro Camera & Lighting Setup'
+                    ]
+                }
+            ],
+            addons: [
+                { id: 'extra_hour', name: 'Additional Hours', base: 100, unit: 'hour' },
+                { id: 'guest_album', name: 'Photo Booth Guest Album', price: 100 },
+                { id: 'photo_strip', name: 'Custom Photo Strip Templates', price: 100 }
+            ]
+        }
         }
     };
 
@@ -395,12 +614,21 @@
         if (url.includes('new-orleans') || url.includes('neworleans')) {
             return 'new-orleans';
         }
+        if (url.includes('washington') || url.includes('washington-dc') || (url.includes('-dc') && url.includes('pricing'))) {
+            return 'washington';
+        }
         return 'austin';
     };
 
     // Get quote data for current location
     const location = getLocation();
     const quoteData = quoteDataByLocation[location] || quoteDataByLocation.austin;
+    
+    // Debug: Log detected location (remove in production if desired)
+    if (typeof console !== 'undefined' && console.log) {
+        console.log('Quote Builder: Detected location:', location);
+        console.log('Quote Builder: Available locations:', Object.keys(quoteDataByLocation));
+    }
 
     // Location-based signature touches and luxury enhancements
     const signatureTouchesByLocation = {
@@ -417,6 +645,14 @@
             'Photo Booth Hours Match Other Service Hours',
             'Lapel Microphone ($75 value)',
             'Custom DJ Mashup ($75 value)',
+            'Glow Sticks ($295 value)',
+            'Photo Booth Guest Album ($100 value)',
+            'Custom Photo Strip Templates ($100 value)'
+        ],
+        'washington': [
+            'Photo Booth Hours Match Other Service Hours',
+            'Custom Song Mashup ($95 value)',
+            'Audio Guestbook Phone ($295 value)',
             'Glow Sticks ($295 value)',
             'Photo Booth Guest Album ($100 value)',
             'Custom Photo Strip Templates ($100 value)'
@@ -442,6 +678,14 @@
             'Love Letters',
             'Upgraded Backdrops ($495 value)',
             'AI or Theme Software Upgrade ($495 value)'
+        ],
+        'washington': [
+            'Ceremony Sound Package ($300 value)',
+            'Cold Spark Fountains (2 sparks, one use; $795 value)',
+            'Dancing on a Cloud ($795 value)',
+            'Uplighting (10 LED Lights; $395 value)',
+            'Dance Floor Lighting (2 Moving Heads on Totems; $395 value)',
+            'TV DJ Booth ($395 value)'
         ]
     };
 
@@ -537,6 +781,28 @@
                     { type: 'luxury_enhancement', quantity: 2 }
                 ],
                 requiresAll: true
+            }
+        ],
+        'washington': [
+            {
+                minServices: 2,
+                discount: 0,
+                description: 'Book Any 2 Services: Pick 1 Free Enhancement',
+                freebies: [{ type: 'luxury_enhancement', quantity: 1 }]
+            },
+            {
+                minServices: 3,
+                discount: 0,
+                description: 'Book Any 3 Services: Pick 2 Free Enhancements',
+                freebies: [{ type: 'luxury_enhancement', quantity: 2 }]
+            },
+            {
+                minServices: 4,
+                discount: 0,
+                description: 'Book 4+ Services: Receive ALL Enhancements – $3,000+ Value!',
+                freebies: [
+                    { type: 'luxury_enhancement', quantity: 6 }
+                ]
             }
         ]
     };

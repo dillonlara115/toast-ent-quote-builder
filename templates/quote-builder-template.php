@@ -1,7 +1,7 @@
 <?php
 /**
  * Quote Builder Template
- *
+ * test
  * Multi-service quote builder powered by Alpine.js
  */
 
@@ -639,7 +639,7 @@ if (!defined('ABSPATH')) {
                                    required 
                                    class="form-input" 
                                    :class="{ 'form-input-error': isFieldInvalid('eventVenueLocation') }"
-                                   placeholder="Enter venue name or address">
+                                   placeholder="Enter city where event will be held">
                             <p x-show="isFieldInvalid('eventVenueLocation')" class="form-error-message" x-text="getFieldErrorMessage('eventVenueLocation')"></p>
                         </div>
                     </div>
@@ -654,7 +654,7 @@ if (!defined('ABSPATH')) {
                     <button @click="submitForm"
                             class="text-white font-bold py-2 px-4 rounded"
                             style="background-color: var(--qb-color);"
-                            :disabled="isSubmitting || !isContactValid"
+                            :disabled="isSubmitting"
                             type="button">
                         <span x-show="!isSubmitting">Submit Quote Request</span>
                         <span x-show="isSubmitting">Submitting...</span>
