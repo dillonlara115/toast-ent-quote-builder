@@ -238,9 +238,9 @@ if (!defined('ABSPATH')) {
                         </template>
                     </ul>
 
-                    <template x-if="packageOption.includes && packageOption.includes.some(item => item.toLowerCase().includes('hour') || item.toLowerCase().includes('hours'))">
+                    <template x-if="packageOption.additionalTimeMessage">
                         <p class="text-sm text-gray-500 mt-2 italic">
-                            Additional time can be added on the next screen.
+                            <span x-text="packageOption.additionalTimeMessage"></span>
                         </p>
                     </template>
 

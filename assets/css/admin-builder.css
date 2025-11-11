@@ -79,3 +79,91 @@
     padding: 2px 6px;
     border-radius: 4px;
 }
+
+/* Fix duplicate checkmarks in CheckboxControl */
+.teqb-cpt-service-card .components-checkbox-control,
+.teqb-cpt-service-card .components-base-control,
+.teqb-builder-admin .components-checkbox-control,
+.teqb-builder-admin .components-base-control {
+    position: relative;
+}
+
+/* Hide any pseudo-elements that might be creating duplicate checkmarks */
+.teqb-cpt-service-card .components-checkbox-control__input-container::before,
+.teqb-cpt-service-card .components-checkbox-control__input-container::after,
+.teqb-builder-admin .components-checkbox-control__input-container::before,
+.teqb-builder-admin .components-checkbox-control__input-container::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Ensure the checkbox itself is visible and properly styled */
+.teqb-cpt-service-card .components-checkbox-control__input[type="checkbox"],
+.teqb-builder-admin .components-checkbox-control__input[type="checkbox"] {
+    position: relative;
+    z-index: 1;
+    opacity: 1;
+    appearance: checkbox;
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+}
+
+/* Remove any background checkmark images */
+.teqb-cpt-service-card .components-checkbox-control__input:checked,
+.teqb-builder-admin .components-checkbox-control__input:checked {
+    background-image: none !important;
+    background: none !important;
+}
+
+/* Hide any ::after pseudo-elements on checked checkboxes */
+.teqb-cpt-service-card .components-checkbox-control__input:checked::after,
+.teqb-builder-admin .components-checkbox-control__input:checked::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Also target the wrapper to ensure no duplicate checkmarks */
+.teqb-cpt-service-card .components-checkbox-control__input-container,
+.teqb-builder-admin .components-checkbox-control__input-container {
+    position: relative;
+}
+
+/* Hide any SVG checkmarks that WordPress might be adding */
+.teqb-cpt-service-card .components-checkbox-control svg,
+.teqb-builder-admin .components-checkbox-control svg,
+.teqb-cpt-service-card .components-checkbox-control__input-container svg,
+.teqb-builder-admin .components-checkbox-control__input-container svg,
+.teqb-cpt-service-card svg[class*="check"],
+.teqb-builder-admin svg[class*="check"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide any icon elements or checkmark symbols */
+.teqb-cpt-service-card .components-checkbox-control .dashicons,
+.teqb-builder-admin .components-checkbox-control .dashicons,
+.teqb-cpt-service-card .components-checkbox-control__input-container .dashicons,
+.teqb-builder-admin .components-checkbox-control__input-container .dashicons {
+    display: none !important;
+}
+
+/* Hide any text content that might be rendering as a checkmark (✓) */
+.teqb-cpt-service-card .components-checkbox-control__input-container > *:not(.components-checkbox-control__input):not(.components-visually-hidden),
+.teqb-builder-admin .components-checkbox-control__input-container > *:not(.components-checkbox-control__input):not(.components-visually-hidden) {
+    display: none !important;
+}
+
+/* Specifically target any checkmark characters or symbols */
+.teqb-cpt-service-card .components-checkbox-control__input-container::after,
+.teqb-builder-admin .components-checkbox-control__input-container::after {
+    content: '' !important;
+    display: none !important;
+}
+
+/* Target the specific structure WordPress CheckboxControl uses */
+/* When CheckboxControl doesn't have a label, it might render differently */
+.teqb-cpt-service-card .components-checkbox-control:not(.components-checkbox-control--has-label) .components-checkbox-control__input-container::after,
+.teqb-builder-admin .components-checkbox-control:not(.components-checkbox-control--has-label) .components-checkbox-control__input-container::after {
+    content: '' !important;
+    display: none !important;
+}

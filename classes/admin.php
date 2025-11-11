@@ -39,6 +39,46 @@ class teqb_Admin {
 		
 		// Hardcoded data exporter
 		add_action('admin_post_teqb_export_hardcoded', array($this, 'handle_export_hardcoded'));
+		
+		// Database seeder
+		add_action('admin_post_teqb_seed_database', array($this, 'handle_seed_database'));
+		add_action('admin_post_teqb_clear_seeded_data', array($this, 'handle_clear_seeded_data'));
+		
+		// Service, Package, Add-on metaboxes
+		add_action('add_meta_boxes_teqb_service', array($this, 'add_service_metaboxes'));
+		add_action('add_meta_boxes_teqb_package', array($this, 'add_package_metaboxes'));
+		add_action('add_meta_boxes_teqb_addon', array($this, 'add_addon_metaboxes'));
+		
+		// Save handlers
+		add_action('save_post_teqb_service', array($this, 'save_service_meta'), 10, 2);
+		add_action('save_post_teqb_package', array($this, 'save_package_meta'), 10, 2);
+		add_action('save_post_teqb_addon', array($this, 'save_addon_meta'), 10, 2);
+		
+		// Admin columns
+		add_filter('manage_teqb_service_posts_columns', array($this, 'service_columns'));
+		add_action('manage_teqb_service_posts_custom_column', array($this, 'render_service_columns'), 10, 2);
+		add_filter('manage_edit-teqb_service_sortable_columns', array($this, 'service_sortable_columns'));
+		add_filter('manage_teqb_package_posts_columns', array($this, 'package_columns'));
+		add_action('manage_teqb_package_posts_custom_column', array($this, 'render_package_columns'), 10, 2);
+		add_filter('manage_edit-teqb_package_sortable_columns', array($this, 'package_sortable_columns'));
+		add_filter('manage_teqb_addon_posts_columns', array($this, 'addon_columns'));
+		add_action('manage_teqb_addon_posts_custom_column', array($this, 'render_addon_columns'), 10, 2);
+		add_filter('manage_edit-teqb_addon_sortable_columns', array($this, 'addon_sortable_columns'));
+		add_action('restrict_manage_posts', array($this, 'add_addon_service_filter'));
+		add_action('parse_query', array($this, 'filter_addons_by_service'));
+		add_filter('posts_clauses', array($this, 'sort_addons_by_service_name'), 10, 2);
+		
+		// Bulk actions
+		add_filter('bulk_actions-edit-teqb_service', array($this, 'service_bulk_actions'));
+		add_filter('bulk_actions-edit-teqb_package', array($this, 'package_bulk_actions'));
+		add_filter('bulk_actions-edit-teqb_addon', array($this, 'addon_bulk_actions'));
+		add_action('handle_bulk_actions-edit-teqb_service', array($this, 'handle_service_bulk_action'), 10, 3);
+		add_action('handle_bulk_actions-edit-teqb_package', array($this, 'handle_package_bulk_action'), 10, 3);
+		add_action('handle_bulk_actions-edit-teqb_addon', array($this, 'handle_addon_bulk_action'), 10, 3);
+		
+		// Bulk action UI
+		add_action('admin_footer-edit.php', array($this, 'add_bulk_action_ui'));
+		add_action('admin_notices', array($this, 'render_bulk_action_notices'));
 	}
 
 	public function register_menus() {
@@ -75,6 +115,30 @@ class teqb_Admin {
 			__('Quote Entries', 'teqb'),
 			'edit_posts',
 			'edit.php?post_type=teqb_quote'
+		);
+		
+		add_submenu_page(
+			'teqb-settings',
+			__('Services', 'teqb'),
+			__('Services', 'teqb'),
+			'edit_posts',
+			'edit.php?post_type=teqb_service'
+		);
+		
+		add_submenu_page(
+			'teqb-settings',
+			__('Packages', 'teqb'),
+			__('Packages', 'teqb'),
+			'edit_posts',
+			'edit.php?post_type=teqb_package'
+		);
+		
+		add_submenu_page(
+			'teqb-settings',
+			__('Add-ons', 'teqb'),
+			__('Add-ons', 'teqb'),
+			'edit_posts',
+			'edit.php?post_type=teqb_addon'
 		);
 	}
 
@@ -119,9 +183,32 @@ class teqb_Admin {
 		if (!current_user_can('manage_options')) {
 			wp_die(__('You do not have permission to access this page.', 'teqb'));
 		}
+		
+		// Check for seeder messages
+		$seeder_message = get_transient('teqb_seeder_message');
+		$seeder_message_type = get_transient('teqb_seeder_message_type');
+		if ($seeder_message) {
+			delete_transient('teqb_seeder_message');
+			delete_transient('teqb_seeder_message_type');
+		}
+		
+		// Get location terms for seeder
+		$locations = get_terms(array(
+			'taxonomy' => 'teqb_location',
+			'hide_empty' => false,
+		));
+		
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e('Quote Builder Settings', 'teqb'); ?></h1>
+			
+			<?php if ($seeder_message) : ?>
+				<div class="notice notice-<?php echo esc_attr($seeder_message_type); ?> is-dismissible">
+					<p><?php echo esc_html($seeder_message); ?></p>
+				</div>
+			<?php endif; ?>
+			
+			<h2><?php esc_html_e('Notification Settings', 'teqb'); ?></h2>
 			<form method="post" action="options.php">
 				<?php
 				settings_fields('teqb_settings_group');
@@ -129,6 +216,253 @@ class teqb_Admin {
 				submit_button();
 				?>
 			</form>
+			
+			<hr>
+			
+			<h2><?php esc_html_e('Database Seeding', 'teqb'); ?></h2>
+			<p><?php esc_html_e('Import default services, packages, and add-ons from the JSON configuration file.', 'teqb'); ?></p>
+			
+			<div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; margin: 20px 0;">
+				<h3><?php esc_html_e('Seed Database', 'teqb'); ?></h3>
+				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+					<?php wp_nonce_field('teqb_seed_database', '_wpnonce'); ?>
+					<input type="hidden" name="action" value="teqb_seed_database">
+					
+					<?php if (!empty($locations) && !is_wp_error($locations)) : ?>
+						<p>
+							<label>
+								<input type="checkbox" name="assign_all_locations" value="1" checked>
+								<?php esc_html_e('Assign to all locations', 'teqb'); ?>
+							</label>
+						</p>
+						<p>
+							<label><?php esc_html_e('Or select specific locations:', 'teqb'); ?></label><br>
+							<?php foreach ($locations as $location) : ?>
+								<label style="display: inline-block; margin-right: 15px;">
+									<input type="checkbox" name="locations[]" value="<?php echo esc_attr($location->term_id); ?>">
+									<?php echo esc_html($location->name); ?>
+								</label>
+							<?php endforeach; ?>
+						</p>
+					<?php endif; ?>
+					
+					<p>
+						<label>
+							<input type="checkbox" name="update_existing" value="1" checked>
+							<?php esc_html_e('Update existing items if they already exist', 'teqb'); ?>
+						</label>
+					</p>
+					
+					<p class="submit">
+						<?php submit_button(__('Seed Database', 'teqb'), 'primary', 'submit', false); ?>
+					</p>
+				</form>
+			</div>
+			
+			<div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; margin: 20px 0; border-left-color: #dc3232;">
+				<h3><?php esc_html_e('Clear Seeded Data', 'teqb'); ?></h3>
+				<p><?php esc_html_e('Warning: This will permanently delete all services, packages, and add-ons. This action cannot be undone.', 'teqb'); ?></p>
+				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('<?php esc_attr_e('Are you sure you want to delete all seeded data? This cannot be undone.', 'teqb'); ?>');">
+					<?php wp_nonce_field('teqb_clear_seeded_data', '_wpnonce'); ?>
+					<input type="hidden" name="action" value="teqb_clear_seeded_data">
+					<p class="submit">
+						<?php submit_button(__('Clear All Seeded Data', 'teqb'), 'delete', 'submit', false); ?>
+					</p>
+				</form>
+			</div>
+			
+			<hr>
+			
+			<h2><?php esc_html_e('Configuration Diagnostics', 'teqb'); ?></h2>
+			<?php $this->render_diagnostics_section(); ?>
+		</div>
+		<?php
+	}
+	
+	/**
+	 * Render diagnostics section showing builder configurations
+	 */
+	private function render_diagnostics_section() {
+		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/cpt-loader.php';
+		
+		// Get all quote builders
+		$builders = get_posts(array(
+			'post_type' => 'teqb_builder',
+			'posts_per_page' => -1,
+			'post_status' => 'any',
+			'orderby' => 'title',
+			'order' => 'ASC',
+		));
+		
+		// Check videography service in database
+		$all_services = teqb_CPT_Loader::get_all_services(null);
+		$videography_service_id = null;
+		$videography_addons = [];
+		
+		foreach ($all_services as $service) {
+			$service_id_meta = get_post_meta($service['post_id'], '_teqb_service_id', true);
+			if ($service_id_meta === 'videography') {
+				$videography_service_id = $service['post_id'];
+				$videography_addons = teqb_CPT_Loader::get_addons_for_service($service['post_id']);
+				break;
+			}
+		}
+		
+		$cpt_builders = [];
+		$hardcoded_builders = [];
+		$videography_builders = [];
+		
+		?>
+		<div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; margin: 20px 0;">
+			<h3><?php esc_html_e('Videography Service Status', 'teqb'); ?></h3>
+			<?php if ($videography_service_id) : ?>
+				<p style="color: #46b450;">
+					<strong>✓</strong> <?php esc_html_e('Videography service found in database', 'teqb'); ?> 
+					(<?php esc_html_e('Post ID', 'teqb'); ?>: <?php echo esc_html($videography_service_id); ?>)
+				</p>
+				<p>
+					<?php esc_html_e('Videography add-ons in database', 'teqb'); ?>: <strong><?php echo esc_html(count($videography_addons)); ?></strong>
+				</p>
+				<?php if (!empty($videography_addons)) : ?>
+					<ul style="margin-left: 20px;">
+						<?php foreach ($videography_addons as $addon) : ?>
+							<li><?php echo esc_html($addon['name']); ?> (ID: <?php echo esc_html($addon['id']); ?>)</li>
+						<?php endforeach; ?>
+					</ul>
+				<?php else : ?>
+					<p style="color: #dc3232;">
+						<strong>⚠</strong> <?php esc_html_e('No videography add-ons found in database. Video package add-ons are currently hardcoded in JavaScript.', 'teqb'); ?>
+					</p>
+				<?php endif; ?>
+			<?php else : ?>
+				<p style="color: #dc3232;">
+					<strong>✗</strong> <?php esc_html_e('Videography service NOT found in database. All videography data is currently hardcoded.', 'teqb'); ?>
+				</p>
+			<?php endif; ?>
+		</div>
+		
+		<div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; margin: 20px 0;">
+			<h3><?php esc_html_e('Quote Builder Configurations', 'teqb'); ?></h3>
+			<?php if (empty($builders)) : ?>
+				<p><?php esc_html_e('No quote builders found.', 'teqb'); ?></p>
+			<?php else : ?>
+				<p><?php echo esc_html(sprintf(__('Found %d quote builder(s):', 'teqb'), count($builders))); ?></p>
+				<table class="wp-list-table widefat fixed striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e('Builder Name', 'teqb'); ?></th>
+							<th><?php esc_html_e('Type', 'teqb'); ?></th>
+							<th><?php esc_html_e('Videography', 'teqb'); ?></th>
+							<th><?php esc_html_e('Status', 'teqb'); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ($builders as $builder) : 
+							$config_raw = get_post_meta($builder->ID, '_teqb_builder_config', true);
+							$config = !empty($config_raw) ? json_decode($config_raw, true) : null;
+							$is_cpt = false;
+							$is_hardcoded = false;
+							$has_videography = false;
+							$status = 'unknown';
+							
+							if (is_array($config)) {
+								if (!empty($config['selectedServices']) && is_array($config['selectedServices'])) {
+									$is_cpt = true;
+									$cpt_builders[] = $builder->ID;
+									$status = 'cpt';
+									if ($videography_service_id && in_array($videography_service_id, $config['selectedServices'])) {
+										$has_videography = true;
+										$videography_builders[] = $builder->ID;
+									}
+								} elseif (!empty($config['services']) && is_array($config['services'])) {
+									$is_hardcoded = true;
+									$hardcoded_builders[] = $builder->ID;
+									$status = 'hardcoded';
+									foreach ($config['services'] as $service) {
+										if (isset($service['id']) && $service['id'] === 'videography') {
+											$has_videography = true;
+											$videography_builders[] = $builder->ID;
+											break;
+										}
+									}
+								} else {
+									$status = 'empty';
+								}
+							} else {
+								$status = 'no-config';
+							}
+							?>
+							<tr>
+								<td>
+									<strong><?php echo esc_html($builder->post_title); ?></strong><br>
+									<small style="color: #666;">ID: <?php echo esc_html($builder->ID); ?></small>
+								</td>
+								<td>
+									<?php if ($is_cpt) : ?>
+										<span style="color: #46b450;">✓ CPT-based</span>
+									<?php elseif ($is_hardcoded) : ?>
+										<span style="color: #dc3232;">✗ Hardcoded</span>
+									<?php else : ?>
+										<span style="color: #ffb900;">⚠ <?php esc_html_e('Unknown', 'teqb'); ?></span>
+									<?php endif; ?>
+								</td>
+								<td>
+									<?php if ($has_videography) : ?>
+										<span style="color: #46b450;">✓ <?php esc_html_e('Included', 'teqb'); ?></span>
+										<?php if ($is_hardcoded) : ?>
+											<br><small style="color: #666;"><?php esc_html_e('(using hardcoded add-ons)', 'teqb'); ?></small>
+										<?php elseif ($is_cpt) : ?>
+											<br><small style="color: #666;"><?php esc_html_e('(using database add-ons)', 'teqb'); ?></small>
+										<?php endif; ?>
+									<?php else : ?>
+										<span style="color: #666;">✗ <?php esc_html_e('Not included', 'teqb'); ?></span>
+									<?php endif; ?>
+								</td>
+								<td>
+									<?php if ($status === 'cpt') : ?>
+										<?php esc_html_e('Using database', 'teqb'); ?>
+									<?php elseif ($status === 'hardcoded') : ?>
+										<?php esc_html_e('Using hardcoded data', 'teqb'); ?>
+									<?php elseif ($status === 'empty') : ?>
+										<?php esc_html_e('Empty config', 'teqb'); ?>
+									<?php elseif ($status === 'no-config') : ?>
+										<?php esc_html_e('No config', 'teqb'); ?>
+									<?php else : ?>
+										<?php esc_html_e('Unknown', 'teqb'); ?>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				
+				<div style="margin-top: 20px; padding: 15px; background: #f0f0f1; border-left: 4px solid #2271b1;">
+					<h4><?php esc_html_e('Summary', 'teqb'); ?></h4>
+					<ul>
+						<li><strong><?php esc_html_e('Total builders', 'teqb'); ?>:</strong> <?php echo esc_html(count($builders)); ?></li>
+						<li><strong><?php esc_html_e('CPT-based builders', 'teqb'); ?>:</strong> <?php echo esc_html(count($cpt_builders)); ?></li>
+						<li><strong><?php esc_html_e('Hardcoded builders', 'teqb'); ?>:</strong> <?php echo esc_html(count($hardcoded_builders)); ?></li>
+						<li><strong><?php esc_html_e('Builders with videography', 'teqb'); ?>:</strong> <?php echo esc_html(count($videography_builders)); ?></li>
+					</ul>
+					
+					<?php if ($videography_service_id && empty($videography_addons)) : ?>
+						<p style="margin-top: 15px; color: #dc3232;">
+							<strong>⚠ <?php esc_html_e('Recommendation', 'teqb'); ?>:</strong> 
+							<?php esc_html_e('Videography service exists but has NO add-ons in database. Video package add-ons are currently hardcoded in JavaScript. To use database system, add videography add-ons via WordPress admin.', 'teqb'); ?>
+						</p>
+					<?php elseif ($videography_service_id && !empty($videography_addons) && !empty($hardcoded_builders)) : ?>
+						<p style="margin-top: 15px; color: #2271b1;">
+							<strong>ℹ <?php esc_html_e('Note', 'teqb'); ?>:</strong> 
+							<?php esc_html_e('Videography service and add-ons exist in database. Consider migrating hardcoded builders to use CPT system.', 'teqb'); ?>
+						</p>
+					<?php elseif (!$videography_service_id) : ?>
+						<p style="margin-top: 15px; color: #dc3232;">
+							<strong>⚠ <?php esc_html_e('Recommendation', 'teqb'); ?>:</strong> 
+							<?php esc_html_e('Videography service not found in database. All videography data is currently hardcoded.', 'teqb'); ?>
+						</p>
+					<?php endif; ?>
+				</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -322,6 +656,11 @@ class teqb_Admin {
 
 		$post_id = $this->get_current_builder_post_id();
 		$config = $this->get_builder_config($post_id);
+		
+		// Load CPT data
+		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/cpt-loader.php';
+		$all_services = teqb_CPT_Loader::get_all_services();
+		$locations = teqb_CPT_Loader::get_locations();
 
 		wp_enqueue_style(
 			'teqb-admin-flowbite',
@@ -354,6 +693,10 @@ class teqb_Admin {
 			'postSlug' => $post_id ? get_post_field('post_name', $post_id) : '',
 			'config'   => $config,
 			'defaults' => $this->default_builder_config(),
+			'cptData'  => array(
+				'allServices' => $all_services,
+				'locations' => $locations,
+			),
 		));
 	}
 
@@ -411,7 +754,10 @@ class teqb_Admin {
 
 	protected function default_builder_config() {
 		return array(
-			'services' => array(),
+			'selectedServices' => array(), // Array of service post IDs
+			'selectedPackages' => array(), // Array of package post IDs with price overrides: { post_id: 123, price_override: 1500 }
+			'selectedAddons' => array(),   // Array of addon post IDs with price overrides: { post_id: 456, price_override: 200 }
+			'location' => '',              // Location slug filter
 			'bundles'  => array(
 				'rules' => array(),
 				'rewards' => array(
@@ -1248,5 +1594,1089 @@ class teqb_Admin {
 		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/hardcoded-exporter.php';
 		$exporter = new teqb_Hardcoded_Data_Exporter();
 		$exporter->export();
+	}
+	
+	/**
+	 * Handle database seeding
+	 */
+	public function handle_seed_database() {
+		if (!current_user_can('manage_options')) {
+			wp_die(__('You do not have permission to seed the database.', 'teqb'));
+		}
+		
+		check_admin_referer('teqb_seed_database');
+		
+		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/database-seeder.php';
+		
+		// Determine locations
+		$locations = null;
+		if (isset($_POST['assign_all_locations']) && $_POST['assign_all_locations']) {
+			// Use all locations (null = all)
+			$locations = null;
+		} elseif (isset($_POST['locations']) && is_array($_POST['locations'])) {
+			$locations = array_map('absint', $_POST['locations']);
+		}
+		
+		$results = teqb_Database_Seeder::seed(null, $locations);
+		
+		if ($results['success']) {
+			$message = sprintf(
+				__('Database seeded successfully! Created: %d services, %d packages, %d add-ons. Updated: %d services, %d packages, %d add-ons.', 'teqb'),
+				$results['services_created'],
+				$results['packages_created'],
+				$results['addons_created'],
+				$results['services_updated'],
+				$results['packages_updated'],
+				$results['addons_updated']
+			);
+			
+			if (!empty($results['errors'])) {
+				$message .= ' ' . __('Some errors occurred:', 'teqb') . ' ' . implode(', ', $results['errors']);
+			}
+			
+			set_transient('teqb_seeder_message', $message, 30);
+			set_transient('teqb_seeder_message_type', 'success', 30);
+		} else {
+			set_transient('teqb_seeder_message', __('Error seeding database: ', 'teqb') . ($results['error'] ?? 'Unknown error'), 30);
+			set_transient('teqb_seeder_message_type', 'error', 30);
+		}
+		
+		wp_safe_redirect(admin_url('admin.php?page=teqb-settings'));
+		exit;
+	}
+	
+	/**
+	 * Handle clearing seeded data
+	 */
+	public function handle_clear_seeded_data() {
+		if (!current_user_can('manage_options')) {
+			wp_die(__('You do not have permission to clear seeded data.', 'teqb'));
+		}
+		
+		check_admin_referer('teqb_clear_seeded_data');
+		
+		require_once plugin_dir_path(dirname(__FILE__)) . 'classes/database-seeder.php';
+		
+		$results = teqb_Database_Seeder::clear_all();
+		
+		if ($results['success']) {
+			$message = sprintf(__('Cleared %d items from the database.', 'teqb'), $results['deleted']);
+			set_transient('teqb_seeder_message', $message, 30);
+			set_transient('teqb_seeder_message_type', 'success', 30);
+		} else {
+			set_transient('teqb_seeder_message', __('Error clearing data.', 'teqb'), 30);
+			set_transient('teqb_seeder_message_type', 'error', 30);
+		}
+		
+		wp_safe_redirect(admin_url('admin.php?page=teqb-settings'));
+		exit;
+	}
+	
+	// ============================================
+	// SERVICE METHODS
+	// ============================================
+	
+	/**
+	 * Add metaboxes for Service CPT
+	 */
+	public function add_service_metaboxes($post) {
+		add_meta_box(
+			'teqb-service-details',
+			__('Service Details', 'teqb'),
+			array($this, 'render_service_metabox'),
+			'teqb_service',
+			'normal',
+			'high'
+		);
+	}
+	
+	/**
+	 * Render Service metabox
+	 */
+	public function render_service_metabox($post) {
+		wp_nonce_field('teqb_service_meta', 'teqb_service_meta_nonce');
+		
+		$service_id = get_post_meta($post->ID, '_teqb_service_id', true);
+		$subtitle = get_post_meta($post->ID, '_teqb_subtitle', true);
+		$starting_price = get_post_meta($post->ID, '_teqb_starting_price', true);
+		$features_title = get_post_meta($post->ID, '_teqb_features_title', true);
+		$features = get_post_meta($post->ID, '_teqb_features', true);
+		$paragraphs = get_post_meta($post->ID, '_teqb_paragraphs', true);
+		
+		if (empty($service_id)) {
+			$service_id = 'service-' . $post->ID;
+		}
+		
+		?>
+		<table class="form-table">
+			<tr>
+				<th><label for="teqb_service_id"><?php esc_html_e('Service ID', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_service_id" name="teqb_service_id" value="<?php echo esc_attr($service_id); ?>" class="regular-text" required>
+					<p class="description"><?php esc_html_e('Unique identifier for this service (e.g., "photo-booth", "dj")', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_subtitle"><?php esc_html_e('Subtitle', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_subtitle" name="teqb_subtitle" value="<?php echo esc_attr($subtitle); ?>" class="regular-text">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_starting_price"><?php esc_html_e('Starting Price', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_starting_price" name="teqb_starting_price" value="<?php echo esc_attr($starting_price); ?>" step="0.01" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Lowest package price for this service', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_features_title"><?php esc_html_e('Features Title', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_features_title" name="teqb_features_title" value="<?php echo esc_attr($features_title); ?>" class="regular-text" placeholder="<?php esc_attr_e('What\'s Included', 'teqb'); ?>">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_features"><?php esc_html_e('Features', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_features" name="teqb_features" rows="5" class="large-text"><?php echo esc_textarea($features); ?></textarea>
+					<p class="description"><?php esc_html_e('One feature per line', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_paragraphs"><?php esc_html_e('Description Paragraphs', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_paragraphs" name="teqb_paragraphs" rows="5" class="large-text"><?php echo esc_textarea($paragraphs); ?></textarea>
+					<p class="description"><?php esc_html_e('One paragraph per line', 'teqb'); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+	
+	/**
+	 * Save Service meta
+	 */
+	public function save_service_meta($post_id, $post) {
+		if (!isset($_POST['teqb_service_meta_nonce']) || !wp_verify_nonce($_POST['teqb_service_meta_nonce'], 'teqb_service_meta')) {
+			return;
+		}
+		
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+			return;
+		}
+		
+		if (!current_user_can('edit_post', $post_id)) {
+			return;
+		}
+		
+		$fields = array(
+			'teqb_service_id' => 'sanitize_text_field',
+			'teqb_subtitle' => 'sanitize_text_field',
+			'teqb_starting_price' => 'floatval',
+			'teqb_features_title' => 'sanitize_text_field',
+			'teqb_features' => 'sanitize_textarea_field',
+			'teqb_paragraphs' => 'sanitize_textarea_field',
+		);
+		
+		foreach ($fields as $field => $sanitize) {
+			$value = isset($_POST[$field]) ? $_POST[$field] : '';
+			if ($sanitize === 'floatval') {
+				$value = floatval($value);
+			} else {
+				$value = call_user_func($sanitize, $value);
+			}
+			update_post_meta($post_id, '_' . $field, $value);
+		}
+	}
+	
+	/**
+	 * Service admin columns
+	 */
+	public function service_columns($columns) {
+		$new_columns = array();
+		$new_columns['cb'] = $columns['cb'];
+		$new_columns['menu_order'] = __('Order', 'teqb');
+		$new_columns['title'] = __('Service Name', 'teqb');
+		$new_columns['service_id'] = __('Service ID', 'teqb');
+		$new_columns['starting_price'] = __('Starting Price', 'teqb');
+		$new_columns['locations'] = __('Locations', 'teqb');
+		$new_columns['date'] = $columns['date'];
+		return $new_columns;
+	}
+	
+	/**
+	 * Render Service columns
+	 */
+	public function render_service_columns($column, $post_id) {
+		switch ($column) {
+			case 'menu_order':
+				$order = get_post($post_id)->menu_order;
+				echo '<strong>' . esc_html($order) . '</strong>';
+				break;
+			case 'service_id':
+				echo esc_html(get_post_meta($post_id, '_teqb_service_id', true));
+				break;
+			case 'starting_price':
+				$price = get_post_meta($post_id, '_teqb_starting_price', true);
+				echo $price ? '$' . number_format($price, 2) : '—';
+				break;
+			case 'locations':
+				$terms = get_the_terms($post_id, 'teqb_location');
+				if ($terms && !is_wp_error($terms)) {
+					$location_names = array_map(function($term) {
+						return $term->name;
+					}, $terms);
+					echo esc_html(implode(', ', $location_names));
+				} else {
+					echo '—';
+				}
+				break;
+		}
+	}
+	
+	/**
+	 * Service sortable columns
+	 */
+	public function service_sortable_columns($columns) {
+		$columns['menu_order'] = 'menu_order';
+		return $columns;
+	}
+	
+	/**
+	 * Service bulk actions
+	 */
+	public function service_bulk_actions($actions) {
+		$actions['teqb_assign_location'] = __('Assign Location', 'teqb');
+		$actions['teqb_remove_location'] = __('Remove Location', 'teqb');
+		$actions['teqb_update_starting_price'] = __('Update Starting Price', 'teqb');
+		return $actions;
+	}
+	
+	/**
+	 * Handle Service bulk action
+	 */
+	public function handle_service_bulk_action($redirect_to, $action, $post_ids) {
+		check_admin_referer('bulk-posts');
+		
+		if ($action === 'teqb_assign_location' || $action === 'teqb_remove_location') {
+			if (isset($_GET['teqb_location'])) {
+				$location_id = intval($_GET['teqb_location']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					if ($action === 'teqb_assign_location') {
+						wp_set_post_terms($post_id, array($location_id), 'teqb_location', true);
+					} else {
+						wp_remove_object_terms($post_id, $location_id, 'teqb_location');
+					}
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		} elseif ($action === 'teqb_update_starting_price') {
+			if (isset($_GET['teqb_starting_price'])) {
+				$price = floatval($_GET['teqb_starting_price']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					update_post_meta($post_id, '_teqb_starting_price', $price);
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		}
+		return $redirect_to;
+	}
+	
+	// ============================================
+	// PACKAGE METHODS
+	// ============================================
+	
+	/**
+	 * Add metaboxes for Package CPT
+	 */
+	public function add_package_metaboxes($post) {
+		add_meta_box(
+			'teqb-package-details',
+			__('Package Details', 'teqb'),
+			array($this, 'render_package_metabox'),
+			'teqb_package',
+			'normal',
+			'high'
+		);
+	}
+	
+	/**
+	 * Render Package metabox
+	 */
+	public function render_package_metabox($post) {
+		wp_nonce_field('teqb_package_meta', 'teqb_package_meta_nonce');
+		
+		$package_id = get_post_meta($post->ID, '_teqb_package_id', true);
+		$service_id = get_post_meta($post->ID, '_teqb_service_id', true);
+		$price = get_post_meta($post->ID, '_teqb_price', true);
+		$includes = get_post_meta($post->ID, '_teqb_includes', true);
+		$bonus_options = get_post_meta($post->ID, '_teqb_bonus_options', true);
+		$bonus_limit = get_post_meta($post->ID, '_teqb_bonus_limit', true);
+		$additional_time_message = get_post_meta($post->ID, '_teqb_additional_time_message', true);
+		
+		if (empty($package_id)) {
+			$package_id = 'package-' . $post->ID;
+		}
+		
+		// Get available services
+		$services = get_posts(array(
+			'post_type' => 'teqb_service',
+			'posts_per_page' => -1,
+			'post_status' => 'any',
+			'orderby' => 'title',
+			'order' => 'ASC',
+		));
+		
+		?>
+		<table class="form-table">
+			<tr>
+				<th><label for="teqb_package_id"><?php esc_html_e('Package ID', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_package_id" name="teqb_package_id" value="<?php echo esc_attr($package_id); ?>" class="regular-text" required>
+					<p class="description"><?php esc_html_e('Unique identifier for this package', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_service_id"><?php esc_html_e('Service', 'teqb'); ?></label></th>
+				<td>
+					<select id="teqb_service_id" name="teqb_service_id" class="regular-text" required>
+						<option value=""><?php esc_html_e('— Select Service —', 'teqb'); ?></option>
+						<?php foreach ($services as $service) : 
+							$service_meta_id = get_post_meta($service->ID, '_teqb_service_id', true);
+							$selected = ($service_id == $service->ID || $service_meta_id == $service_id) ? 'selected' : '';
+						?>
+							<option value="<?php echo esc_attr($service->ID); ?>" <?php echo $selected; ?>>
+								<?php echo esc_html($service->post_title); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description"><?php esc_html_e('The service this package belongs to', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_price"><?php esc_html_e('Price', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_price" name="teqb_price" value="<?php echo esc_attr($price); ?>" step="0.01" min="0" class="small-text" required>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_includes"><?php esc_html_e('Includes', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_includes" name="teqb_includes" rows="5" class="large-text"><?php echo esc_textarea($includes); ?></textarea>
+					<p class="description"><?php esc_html_e('One item per line', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_bonus_options"><?php esc_html_e('Bonus Options', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_bonus_options" name="teqb_bonus_options" rows="5" class="large-text"><?php echo esc_textarea($bonus_options); ?></textarea>
+					<p class="description"><?php esc_html_e('One bonus option per line', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_bonus_limit"><?php esc_html_e('Bonus Limit', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_bonus_limit" name="teqb_bonus_limit" value="<?php echo esc_attr($bonus_limit); ?>" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Maximum number of bonuses that can be selected', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_additional_time_message"><?php esc_html_e('Additional Time Message', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_additional_time_message" name="teqb_additional_time_message" value="<?php echo esc_attr($additional_time_message); ?>" class="large-text">
+					<p class="description"><?php esc_html_e('Optional message displayed when package includes hours (e.g., "Additional time can be added on the next screen."). Leave blank to hide.', 'teqb'); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+	
+	/**
+	 * Save Package meta
+	 */
+	public function save_package_meta($post_id, $post) {
+		if (!isset($_POST['teqb_package_meta_nonce']) || !wp_verify_nonce($_POST['teqb_package_meta_nonce'], 'teqb_package_meta')) {
+			return;
+		}
+		
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+			return;
+		}
+		
+		if (!current_user_can('edit_post', $post_id)) {
+			return;
+		}
+		
+		$fields = array(
+			'teqb_package_id' => 'sanitize_text_field',
+			'teqb_service_id' => 'absint',
+			'teqb_price' => 'floatval',
+			'teqb_includes' => 'sanitize_textarea_field',
+			'teqb_bonus_options' => 'sanitize_textarea_field',
+			'teqb_bonus_limit' => 'absint',
+			'teqb_additional_time_message' => 'sanitize_text_field',
+		);
+		
+		foreach ($fields as $field => $sanitize) {
+			$value = isset($_POST[$field]) ? $_POST[$field] : '';
+			if ($sanitize === 'floatval') {
+				$value = floatval($value);
+			} elseif ($sanitize === 'absint') {
+				$value = absint($value);
+			} else {
+				$value = call_user_func($sanitize, $value);
+			}
+			update_post_meta($post_id, '_' . $field, $value);
+		}
+	}
+	
+	/**
+	 * Package admin columns
+	 */
+	public function package_columns($columns) {
+		$new_columns = array();
+		$new_columns['cb'] = $columns['cb'];
+		$new_columns['menu_order'] = __('Order', 'teqb');
+		$new_columns['title'] = __('Package Name', 'teqb');
+		$new_columns['package_id'] = __('Package ID', 'teqb');
+		$new_columns['service'] = __('Service', 'teqb');
+		$new_columns['price'] = __('Price', 'teqb');
+		$new_columns['locations'] = __('Locations', 'teqb');
+		$new_columns['date'] = $columns['date'];
+		return $new_columns;
+	}
+	
+	/**
+	 * Render Package columns
+	 */
+	public function render_package_columns($column, $post_id) {
+		switch ($column) {
+			case 'menu_order':
+				$order = get_post($post_id)->menu_order;
+				echo '<strong>' . esc_html($order) . '</strong>';
+				break;
+			case 'package_id':
+				echo esc_html(get_post_meta($post_id, '_teqb_package_id', true));
+				break;
+			case 'service':
+				$service_id = get_post_meta($post_id, '_teqb_service_id', true);
+				if ($service_id) {
+					$service = get_post($service_id);
+					echo $service ? esc_html($service->post_title) : '—';
+				} else {
+					echo '—';
+				}
+				break;
+			case 'price':
+				$price = get_post_meta($post_id, '_teqb_price', true);
+				echo $price ? '$' . number_format($price, 2) : '—';
+				break;
+			case 'locations':
+				$terms = get_the_terms($post_id, 'teqb_location');
+				if ($terms && !is_wp_error($terms)) {
+					$location_names = array_map(function($term) {
+						return $term->name;
+					}, $terms);
+					echo esc_html(implode(', ', $location_names));
+				} else {
+					echo '—';
+				}
+				break;
+		}
+	}
+	
+	/**
+	 * Package sortable columns
+	 */
+	public function package_sortable_columns($columns) {
+		$columns['menu_order'] = 'menu_order';
+		return $columns;
+	}
+	
+	/**
+	 * Package bulk actions
+	 */
+	public function package_bulk_actions($actions) {
+		$actions['teqb_assign_location'] = __('Assign Location', 'teqb');
+		$actions['teqb_remove_location'] = __('Remove Location', 'teqb');
+		$actions['teqb_update_price'] = __('Update Price', 'teqb');
+		return $actions;
+	}
+	
+	/**
+	 * Handle Package bulk action
+	 */
+	public function handle_package_bulk_action($redirect_to, $action, $post_ids) {
+		check_admin_referer('bulk-posts');
+		
+		if ($action === 'teqb_assign_location' || $action === 'teqb_remove_location') {
+			if (isset($_GET['teqb_location'])) {
+				$location_id = intval($_GET['teqb_location']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					if ($action === 'teqb_assign_location') {
+						wp_set_post_terms($post_id, array($location_id), 'teqb_location', true);
+					} else {
+						wp_remove_object_terms($post_id, $location_id, 'teqb_location');
+					}
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		} elseif ($action === 'teqb_update_price') {
+			if (isset($_GET['teqb_price'])) {
+				$price = floatval($_GET['teqb_price']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					update_post_meta($post_id, '_teqb_price', $price);
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		}
+		return $redirect_to;
+	}
+	
+	// ============================================
+	// ADD-ON METHODS
+	// ============================================
+	
+	/**
+	 * Add metaboxes for Add-on CPT
+	 */
+	public function add_addon_metaboxes($post) {
+		add_meta_box(
+			'teqb-addon-details',
+			__('Add-on Details', 'teqb'),
+			array($this, 'render_addon_metabox'),
+			'teqb_addon',
+			'normal',
+			'high'
+		);
+	}
+	
+	/**
+	 * Render Add-on metabox
+	 */
+	public function render_addon_metabox($post) {
+		wp_nonce_field('teqb_addon_meta', 'teqb_addon_meta_nonce');
+		
+		$addon_id = get_post_meta($post->ID, '_teqb_addon_id', true);
+		$service_id = get_post_meta($post->ID, '_teqb_service_id', true);
+		$price = get_post_meta($post->ID, '_teqb_price', true);
+		$base = get_post_meta($post->ID, '_teqb_base', true);
+		$unit = get_post_meta($post->ID, '_teqb_unit', true);
+		$min = get_post_meta($post->ID, '_teqb_min', true);
+		$options = get_post_meta($post->ID, '_teqb_options', true);
+		$extras = get_post_meta($post->ID, '_teqb_extras', true);
+		
+		if (empty($addon_id)) {
+			$addon_id = 'addon-' . $post->ID;
+		}
+		
+		// Get available services
+		$services = get_posts(array(
+			'post_type' => 'teqb_service',
+			'posts_per_page' => -1,
+			'post_status' => 'any',
+			'orderby' => 'title',
+			'order' => 'ASC',
+		));
+		
+		?>
+		<table class="form-table">
+			<tr>
+				<th><label for="teqb_addon_id"><?php esc_html_e('Add-on ID', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_addon_id" name="teqb_addon_id" value="<?php echo esc_attr($addon_id); ?>" class="regular-text" required>
+					<p class="description"><?php esc_html_e('Unique identifier for this add-on', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_service_id"><?php esc_html_e('Service', 'teqb'); ?></label></th>
+				<td>
+					<select id="teqb_service_id" name="teqb_service_id" class="regular-text" required>
+						<option value=""><?php esc_html_e('— Select Service —', 'teqb'); ?></option>
+						<?php foreach ($services as $service) : 
+							$service_meta_id = get_post_meta($service->ID, '_teqb_service_id', true);
+							$selected = ($service_id == $service->ID || $service_meta_id == $service_id) ? 'selected' : '';
+						?>
+							<option value="<?php echo esc_attr($service->ID); ?>" <?php echo $selected; ?>>
+								<?php echo esc_html($service->post_title); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description"><?php esc_html_e('The service this add-on belongs to', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_price"><?php esc_html_e('Price (Flat)', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_price" name="teqb_price" value="<?php echo esc_attr($price); ?>" step="0.01" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Flat price (leave blank if using base price)', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_base"><?php esc_html_e('Base Price (Per Unit)', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_base" name="teqb_base" value="<?php echo esc_attr($base); ?>" step="0.01" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Base price per unit (leave blank if using flat price)', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_unit"><?php esc_html_e('Unit', 'teqb'); ?></label></th>
+				<td>
+					<input type="text" id="teqb_unit" name="teqb_unit" value="<?php echo esc_attr($unit); ?>" class="regular-text" placeholder="<?php esc_attr_e('e.g., hour, uplight', 'teqb'); ?>">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_min"><?php esc_html_e('Minimum Quantity', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_min" name="teqb_min" value="<?php echo esc_attr($min); ?>" min="0" class="small-text">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_options"><?php esc_html_e('Options', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_options" name="teqb_options" rows="5" class="large-text"><?php echo esc_textarea($options); ?></textarea>
+					<p class="description"><?php esc_html_e('One option per line', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="teqb_extras"><?php esc_html_e('Extras (JSON)', 'teqb'); ?></label></th>
+				<td>
+					<textarea id="teqb_extras" name="teqb_extras" rows="5" class="large-text"><?php echo esc_textarea($extras); ?></textarea>
+					<p class="description"><?php esc_html_e('JSON format: {"Option Name": 100, "Another Option": 200}', 'teqb'); ?></p>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+	
+	/**
+	 * Save Add-on meta
+	 */
+	public function save_addon_meta($post_id, $post) {
+		if (!isset($_POST['teqb_addon_meta_nonce']) || !wp_verify_nonce($_POST['teqb_addon_meta_nonce'], 'teqb_addon_meta')) {
+			return;
+		}
+		
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+			return;
+		}
+		
+		if (!current_user_can('edit_post', $post_id)) {
+			return;
+		}
+		
+		$fields = array(
+			'teqb_addon_id' => 'sanitize_text_field',
+			'teqb_service_id' => 'absint',
+			'teqb_price' => 'floatval',
+			'teqb_base' => 'floatval',
+			'teqb_unit' => 'sanitize_text_field',
+			'teqb_min' => 'absint',
+			'teqb_options' => 'sanitize_textarea_field',
+			'teqb_extras' => 'sanitize_textarea_field',
+		);
+		
+		foreach ($fields as $field => $sanitize) {
+			$value = isset($_POST[$field]) ? $_POST[$field] : '';
+			if ($sanitize === 'floatval') {
+				$value = floatval($value);
+			} elseif ($sanitize === 'absint') {
+				$value = absint($value);
+			} else {
+				$value = call_user_func($sanitize, $value);
+			}
+			update_post_meta($post_id, '_' . $field, $value);
+		}
+	}
+	
+	/**
+	 * Add-on admin columns
+	 */
+	public function addon_columns($columns) {
+		$new_columns = array();
+		$new_columns['cb'] = $columns['cb'];
+		$new_columns['menu_order'] = __('Order', 'teqb');
+		$new_columns['title'] = __('Add-on Name', 'teqb');
+		$new_columns['addon_id'] = __('Add-on ID', 'teqb');
+		$new_columns['service'] = __('Service', 'teqb');
+		$new_columns['price'] = __('Price', 'teqb');
+		$new_columns['locations'] = __('Locations', 'teqb');
+		$new_columns['date'] = $columns['date'];
+		return $new_columns;
+	}
+	
+	/**
+	 * Render Add-on columns
+	 */
+	public function render_addon_columns($column, $post_id) {
+		switch ($column) {
+			case 'menu_order':
+				$order = get_post($post_id)->menu_order;
+				echo '<strong>' . esc_html($order) . '</strong>';
+				break;
+			case 'addon_id':
+				echo esc_html(get_post_meta($post_id, '_teqb_addon_id', true));
+				break;
+			case 'service':
+				$service_id = get_post_meta($post_id, '_teqb_service_id', true);
+				if ($service_id) {
+					$service = get_post($service_id);
+					echo $service ? esc_html($service->post_title) : '—';
+				} else {
+					echo '—';
+				}
+				break;
+			case 'price':
+				$price = get_post_meta($post_id, '_teqb_price', true);
+				$base = get_post_meta($post_id, '_teqb_base', true);
+				if ($price) {
+					echo '$' . number_format($price, 2) . ' (flat)';
+				} elseif ($base) {
+					echo '$' . number_format($base, 2) . ' (per unit)';
+				} else {
+					echo '—';
+				}
+				break;
+			case 'locations':
+				$terms = get_the_terms($post_id, 'teqb_location');
+				if ($terms && !is_wp_error($terms)) {
+					$location_names = array_map(function($term) {
+						return $term->name;
+					}, $terms);
+					echo esc_html(implode(', ', $location_names));
+				} else {
+					echo '—';
+				}
+				break;
+		}
+	}
+	
+	/**
+	 * Add-on sortable columns
+	 */
+	public function addon_sortable_columns($columns) {
+		$columns['menu_order'] = 'menu_order';
+		$columns['service'] = 'service'; // Make Service column sortable
+		return $columns;
+	}
+	
+	/**
+	 * Add-on bulk actions
+	 */
+	public function addon_bulk_actions($actions) {
+		$actions['teqb_assign_location'] = __('Assign Location', 'teqb');
+		$actions['teqb_remove_location'] = __('Remove Location', 'teqb');
+		$actions['teqb_update_price'] = __('Update Price (Flat)', 'teqb');
+		$actions['teqb_update_base_price'] = __('Update Base Price (Per Unit)', 'teqb');
+		return $actions;
+	}
+	
+	/**
+	 * Handle Add-on bulk action
+	 */
+	public function handle_addon_bulk_action($redirect_to, $action, $post_ids) {
+		check_admin_referer('bulk-posts');
+		
+		if ($action === 'teqb_assign_location' || $action === 'teqb_remove_location') {
+			if (isset($_GET['teqb_location'])) {
+				$location_id = intval($_GET['teqb_location']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					if ($action === 'teqb_assign_location') {
+						wp_set_post_terms($post_id, array($location_id), 'teqb_location', true);
+					} else {
+						wp_remove_object_terms($post_id, $location_id, 'teqb_location');
+					}
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		} elseif ($action === 'teqb_update_price') {
+			if (isset($_GET['teqb_price'])) {
+				$price = floatval($_GET['teqb_price']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					update_post_meta($post_id, '_teqb_price', $price);
+					// Clear base price if setting flat price
+					update_post_meta($post_id, '_teqb_base', '');
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		} elseif ($action === 'teqb_update_base_price') {
+			if (isset($_GET['teqb_base_price'])) {
+				$base_price = floatval($_GET['teqb_base_price']);
+				$updated = 0;
+				foreach ($post_ids as $post_id) {
+					update_post_meta($post_id, '_teqb_base', $base_price);
+					// Clear flat price if setting base price
+					update_post_meta($post_id, '_teqb_price', '');
+					$updated++;
+				}
+				$redirect_to = add_query_arg('teqb_bulk_updated', $updated, $redirect_to);
+				$redirect_to = add_query_arg('teqb_bulk_action', $action, $redirect_to);
+			}
+		}
+		return $redirect_to;
+	}
+	
+	/**
+	 * Add bulk action UI (location selector, price inputs)
+	 */
+	public function add_bulk_action_ui($hook) {
+		$screen = get_current_screen();
+		if (!$screen || !in_array($screen->post_type, array('teqb_service', 'teqb_package', 'teqb_addon'))) {
+			return;
+		}
+		
+		$locations = get_terms(array(
+			'taxonomy' => 'teqb_location',
+			'hide_empty' => false,
+		));
+		
+		if (is_wp_error($locations)) {
+			$locations = array();
+		}
+		?>
+		<script type="text/javascript">
+		(function($) {
+			$(document).ready(function() {
+				var postType = '<?php echo esc_js($screen->post_type); ?>';
+				var $bulkActions = $('select[name="action"], select[name="action2"]');
+				var $bulkActionsTop = $('select[name="action"]');
+				var $bulkActionsBottom = $('select[name="action2"]');
+				
+				// Create UI container
+				var $bulkUI = $('<div id="teqb-bulk-ui" style="display:none; padding:10px; background:#fff; border:1px solid #ccd0d4; margin:10px 0; border-left:4px solid #2271b1;"></div>');
+				$bulkActionsTop.after($bulkUI);
+				
+				function showBulkUI(action) {
+					$bulkUI.empty().show();
+					
+					if (action === 'teqb_assign_location' || action === 'teqb_remove_location') {
+						var actionLabel = action === 'teqb_assign_location' ? 'Assign Location' : 'Remove Location';
+						var html = '<strong>' + actionLabel + ':</strong><br>';
+						html += '<select name="teqb_location" id="teqb_location_select" style="margin-top:5px; min-width:200px;">';
+						html += '<option value=""><?php esc_html_e('— Select Location —', 'teqb'); ?></option>';
+						<?php foreach ($locations as $location) : ?>
+						html += '<option value="<?php echo esc_js($location->term_id); ?>"><?php echo esc_js($location->name); ?></option>';
+						<?php endforeach; ?>
+						html += '</select>';
+						html += '<p class="description" style="margin-top:5px;"><?php esc_html_e('Select a location and click "Apply" to execute the bulk action.', 'teqb'); ?></p>';
+						$bulkUI.html(html);
+					} else if (action === 'teqb_update_starting_price' && postType === 'teqb_service') {
+						var html = '<strong><?php esc_html_e('Update Starting Price:', 'teqb'); ?></strong><br>';
+						html += '<input type="number" name="teqb_starting_price" id="teqb_starting_price" step="0.01" min="0" style="margin-top:5px; width:150px;" placeholder="0.00">';
+						html += '<p class="description" style="margin-top:5px;"><?php esc_html_e('Enter the new starting price for all selected services.', 'teqb'); ?></p>';
+						$bulkUI.html(html);
+					} else if (action === 'teqb_update_price' && (postType === 'teqb_package' || postType === 'teqb_addon')) {
+						var html = '<strong><?php esc_html_e('Update Price:', 'teqb'); ?></strong><br>';
+						html += '<input type="number" name="teqb_price" id="teqb_price" step="0.01" min="0" style="margin-top:5px; width:150px;" placeholder="0.00">';
+						html += '<p class="description" style="margin-top:5px;"><?php esc_html_e('Enter the new flat price for all selected items.', 'teqb'); ?></p>';
+						$bulkUI.html(html);
+					} else if (action === 'teqb_update_base_price' && postType === 'teqb_addon') {
+						var html = '<strong><?php esc_html_e('Update Base Price (Per Unit):', 'teqb'); ?></strong><br>';
+						html += '<input type="number" name="teqb_base_price" id="teqb_base_price" step="0.01" min="0" style="margin-top:5px; width:150px;" placeholder="0.00">';
+						html += '<p class="description" style="margin-top:5px;"><?php esc_html_e('Enter the new base price per unit for all selected add-ons.', 'teqb'); ?></p>';
+						$bulkUI.html(html);
+					}
+				}
+				
+				function hideBulkUI() {
+					$bulkUI.hide().empty();
+				}
+				
+				// Watch for bulk action changes
+				$bulkActions.on('change', function() {
+					var action = $(this).val();
+					if (action && action.indexOf('teqb_') === 0) {
+						showBulkUI(action);
+					} else {
+						hideBulkUI();
+					}
+				});
+				
+				// Intercept form submission to add parameters
+				$('form#posts-filter').on('submit', function(e) {
+					var action = $bulkActionsTop.val() || $bulkActionsBottom.val();
+					if (action && action.indexOf('teqb_') === 0) {
+						if (action === 'teqb_assign_location' || action === 'teqb_remove_location') {
+							var locationId = $('#teqb_location_select').val();
+							if (!locationId) {
+								alert('<?php esc_html_e('Please select a location.', 'teqb'); ?>');
+								e.preventDefault();
+								return false;
+							}
+							$(this).append('<input type="hidden" name="teqb_location" value="' + locationId + '">');
+						} else if (action === 'teqb_update_starting_price') {
+							var price = $('#teqb_starting_price').val();
+							if (price === '') {
+								alert('<?php esc_html_e('Please enter a starting price.', 'teqb'); ?>');
+								e.preventDefault();
+								return false;
+							}
+							$(this).append('<input type="hidden" name="teqb_starting_price" value="' + price + '">');
+						} else if (action === 'teqb_update_price') {
+							var price = $('#teqb_price').val();
+							if (price === '') {
+								alert('<?php esc_html_e('Please enter a price.', 'teqb'); ?>');
+								e.preventDefault();
+								return false;
+							}
+							$(this).append('<input type="hidden" name="teqb_price" value="' + price + '">');
+						} else if (action === 'teqb_update_base_price') {
+							var basePrice = $('#teqb_base_price').val();
+							if (basePrice === '') {
+								alert('<?php esc_html_e('Please enter a base price.', 'teqb'); ?>');
+								e.preventDefault();
+								return false;
+							}
+							$(this).append('<input type="hidden" name="teqb_base_price" value="' + basePrice + '">');
+						}
+					}
+				});
+			});
+		})(jQuery);
+		</script>
+		<?php
+	}
+	
+	/**
+	 * Render bulk action success notices
+	 */
+	public function render_bulk_action_notices() {
+		if (!isset($_GET['teqb_bulk_updated']) || !isset($_GET['teqb_bulk_action'])) {
+			return;
+		}
+		
+		$updated = intval($_GET['teqb_bulk_updated']);
+		$action = sanitize_text_field($_GET['teqb_bulk_action']);
+		
+		if ($updated === 0) {
+			return;
+		}
+		
+		$messages = array(
+			'teqb_assign_location' => sprintf(_n('%d item assigned to location.', '%d items assigned to location.', $updated, 'teqb'), $updated),
+			'teqb_remove_location' => sprintf(_n('%d item removed from location.', '%d items removed from location.', $updated, 'teqb'), $updated),
+			'teqb_update_starting_price' => sprintf(_n('Starting price updated for %d service.', 'Starting price updated for %d services.', $updated, 'teqb'), $updated),
+			'teqb_update_price' => sprintf(_n('Price updated for %d item.', 'Price updated for %d items.', $updated, 'teqb'), $updated),
+			'teqb_update_base_price' => sprintf(_n('Base price updated for %d add-on.', 'Base price updated for %d add-ons.', $updated, 'teqb'), $updated),
+		);
+		
+		$message = isset($messages[$action]) ? $messages[$action] : sprintf(__('%d items updated.', 'teqb'), $updated);
+		
+		?>
+		<div class="notice notice-success is-dismissible">
+			<p><?php echo esc_html($message); ?></p>
+		</div>
+		<?php
+	}
+	
+	/**
+	 * Add service filter dropdown for add-ons
+	 */
+	public function add_addon_service_filter($post_type) {
+		if ($post_type !== 'teqb_addon') {
+			return;
+		}
+		
+		// Get all services
+		$services = get_posts(array(
+			'post_type' => 'teqb_service',
+			'posts_per_page' => -1,
+			'post_status' => 'any',
+			'orderby' => 'title',
+			'order' => 'ASC',
+		));
+		
+		$selected_service = isset($_GET['teqb_filter_service']) ? intval($_GET['teqb_filter_service']) : 0;
+		
+		?>
+		<select name="teqb_filter_service" id="teqb_filter_service">
+			<option value="0"><?php esc_html_e('All Services', 'teqb'); ?></option>
+			<?php foreach ($services as $service) : ?>
+				<option value="<?php echo esc_attr($service->ID); ?>" <?php selected($selected_service, $service->ID); ?>>
+					<?php echo esc_html($service->post_title); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<?php
+	}
+	
+	/**
+	 * Filter add-ons by service
+	 */
+	public function filter_addons_by_service($query) {
+		global $pagenow;
+		
+		if (!is_admin() || $pagenow !== 'edit.php') {
+			return;
+		}
+		
+		if (!function_exists('get_current_screen')) {
+			return;
+		}
+		$screen = function_exists('get_current_screen') ? get_current_screen() : null;
+		if (!$screen || !isset($screen->post_type) || $screen->post_type !== 'teqb_addon') {
+			return;
+		}
+		// Handle service filter
+		if (isset($_GET['teqb_filter_service']) && $_GET['teqb_filter_service'] != '0') {
+			$service_id = intval($_GET['teqb_filter_service']);
+			$query->set('meta_key', '_teqb_service_id');
+			$query->set('meta_value', $service_id);
+		}
+		
+		// Handle service column sorting - we'll use posts_clauses filter for proper JOIN
+		if (isset($_GET['orderby']) && $_GET['orderby'] === 'service') {
+			$query->set('meta_key', '_teqb_service_id');
+		}
+	}
+	
+	/**
+	 * Sort add-ons by service name using JOIN
+	 */
+	public function sort_addons_by_service_name($clauses, $query) {
+		global $wpdb;
+		
+		if (!is_admin() || !$query->is_main_query()) {
+			return $clauses;
+		}
+		
+		$screen = get_current_screen();
+		if (!$screen || $screen->post_type !== 'teqb_addon') {
+			return $clauses;
+		}
+		
+		// Only apply when sorting by service
+		if (!isset($_GET['orderby']) || $_GET['orderby'] !== 'service') {
+			return $clauses;
+		}
+		
+		$order = isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC' ? 'DESC' : 'ASC';
+		
+		// Add JOIN to get service post title
+		$clauses['join'] .= " LEFT JOIN {$wpdb->postmeta} AS service_meta ON {$wpdb->posts}.ID = service_meta.post_id AND service_meta.meta_key = '_teqb_service_id'";
+		$clauses['join'] .= " LEFT JOIN {$wpdb->posts} AS service_posts ON service_meta.meta_value = service_posts.ID";
+		
+		// Order by service post title
+		$clauses['orderby'] = "service_posts.post_title {$order}, {$wpdb->posts}.menu_order ASC";
+		
+		return $clauses;
 	}
 }

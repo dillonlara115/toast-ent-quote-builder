@@ -163,12 +163,48 @@ class teqb_Quote_Builder extends teqb_Base {
             if ($normalized_slug) {
                 $builder_id = $this->get_builder_id_by_slug($normalized_slug);
                 $atts['builder'] = $normalized_slug;
+                
+                // Debug: Log builder lookup
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('TEQB: Shortcode builder attribute: ' . $atts['builder']);
+                    error_log('TEQB: Normalized slug: ' . $normalized_slug);
+                    error_log('TEQB: Found builder ID: ' . ($builder_id ? $builder_id : 'NULL'));
+                }
             }
         }
         
         // Store builder ID for asset localization
-        self::$current_builder_id = $builder_id;
-        $this->ensure_builder_data_localized($builder_id);
+        // Output script directly in shortcode output to ensure it's available when JS runs
+        $builder_data_script = '';
+        if ($builder_id) {
+            $quote_data = $this->get_quote_data_for_frontend($builder_id);
+            if ($quote_data) {
+                $quote_data['builder_id'] = $builder_id;
+                $builder_data_script = sprintf(
+                    '<script type="text/javascript">window.quoteBuilderData = %s;</script>',
+                    wp_json_encode($quote_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                );
+                
+                // Also store for footer hook as backup
+                self::$current_builder_id = $builder_id;
+                
+                // Debug: Log data output
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('TEQB: Outputting builder data for ID: ' . $builder_id);
+                    error_log('TEQB: Services in data: ' . implode(', ', array_keys($quote_data['quoteData'] ?? [])));
+                }
+            } else {
+                // Debug: No data found
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('TEQB: No quote data found for builder ID: ' . $builder_id);
+                }
+            }
+        } else if (!empty($atts['builder'])) {
+            // Debug: Builder slug provided but not found
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('TEQB: Builder slug provided but ID not found: ' . $atts['builder']);
+            }
+        }
         
         // Allow developers to hook before the template is rendered
         do_action('teqb_before_template', $atts);
@@ -177,6 +213,9 @@ class teqb_Quote_Builder extends teqb_Base {
         ob_start();
         require plugin_dir_path(dirname(__FILE__)) . 'templates/quote-builder-template.php';
         $template_content = ob_get_clean();
+        
+        // Prepend builder data script to template content so it's available before JS runs
+        $template_content = $builder_data_script . $template_content;
         
         // Allow filters on the rendered content
         return apply_filters('teqb_template_content', $template_content, $atts);
@@ -1077,8 +1116,15 @@ class teqb_Quote_Builder extends teqb_Base {
         $stored = get_post_meta($post_id, '_teqb_builder_config', true);
         if (!empty($stored)) {
             $decoded = json_decode($stored, true);
-            if (is_array($decoded) && !empty($decoded['services']) && is_array($decoded['services'])) {
-                return $decoded;
+            if (is_array($decoded)) {
+                // Check for new CPT-based format (has selectedServices)
+                if (!empty($decoded['selectedServices']) && is_array($decoded['selectedServices'])) {
+                    return $decoded;
+                }
+                // Check for old format (has services array)
+                if (!empty($decoded['services']) && is_array($decoded['services'])) {
+                    return $decoded;
+                }
             }
         }
 
@@ -1090,11 +1136,21 @@ class teqb_Quote_Builder extends teqb_Base {
      */
     protected function get_quote_data_for_frontend($builder_id) {
         $config = $this->get_builder_config($builder_id);
-        if (!$config || empty($config['services'])) {
+        if (!$config) {
             return null;
         }
         
-        // Transform services array to object keyed by service ID
+        // Check if using new CPT-based format
+        if (!empty($config['selectedServices']) && is_array($config['selectedServices'])) {
+            return $this->get_quote_data_from_cpts($config);
+        }
+        
+        // Fall back to old format (services array)
+        if (empty($config['services']) || !is_array($config['services'])) {
+            return null;
+        }
+        
+        // Transform services array to object keyed by service ID (old format)
         $quote_data = [];
         foreach ($config['services'] as $service) {
             if (empty($service['id'])) {
@@ -1174,7 +1230,240 @@ class teqb_Quote_Builder extends teqb_Base {
             }
         }
         
-        // Add bundle discounts and reward catalog
+        return $this->build_result_with_bundles($quote_data, $config);
+    }
+    
+    /**
+     * Load quote data from CPTs based on builder config
+     */
+    protected function get_quote_data_from_cpts($config) {
+        require_once plugin_dir_path(dirname(__FILE__)) . 'classes/cpt-loader.php';
+        
+        $selected_service_ids = $config['selectedServices'] ?? [];
+        $selected_packages = $config['selectedPackages'] ?? [];
+        $selected_addons = $config['selectedAddons'] ?? [];
+        // Note: location filter is for admin organization only, not frontend filtering
+        
+        if (empty($selected_service_ids)) {
+            return null;
+        }
+        
+        // Build lookup maps for price overrides
+        // Only store overrides that are explicitly set (not null, not empty string, not 0 unless it's a valid override)
+        $package_overrides = [];
+        foreach ($selected_packages as $pkg_ref) {
+            if (isset($pkg_ref['post_id'])) {
+                // Only set override if it's explicitly provided and not null/empty
+                if (isset($pkg_ref['price_override']) && 
+                    $pkg_ref['price_override'] !== null && 
+                    $pkg_ref['price_override'] !== '' &&
+                    $pkg_ref['price_override'] !== 0) {
+                    $package_overrides[$pkg_ref['post_id']] = floatval($pkg_ref['price_override']);
+                }
+            }
+        }
+        
+        $addon_overrides = [];
+        foreach ($selected_addons as $addon_ref) {
+            if (isset($addon_ref['post_id'])) {
+                // Only set override if it's explicitly provided and not null/empty
+                if (isset($addon_ref['price_override']) && 
+                    $addon_ref['price_override'] !== null && 
+                    $addon_ref['price_override'] !== '' &&
+                    $addon_ref['price_override'] !== 0) {
+                    $addon_overrides[$addon_ref['post_id']] = floatval($addon_ref['price_override']);
+                }
+            }
+        }
+        
+        // Load services from CPTs (no location filter - show all selected services)
+        $all_services = teqb_CPT_Loader::get_all_services(null);
+        $quote_data = [];
+        
+        foreach ($all_services as $service) {
+            // Only include selected services
+            if (!in_array($service['post_id'], $selected_service_ids)) {
+                continue;
+            }
+            
+            $service_id_meta = get_post_meta($service['post_id'], '_teqb_service_id', true);
+            if (empty($service_id_meta)) {
+                continue;
+            }
+            
+            $service_id = $service_id_meta;
+            
+            // Get features and paragraphs
+            $features = $this->text_to_array(get_post_meta($service['post_id'], '_teqb_features', true));
+            $paragraphs = $this->text_to_array(get_post_meta($service['post_id'], '_teqb_paragraphs', true));
+            
+            $quote_data[$service_id] = [
+                'label' => $service['label'],
+                'subtitle' => $service['subtitle'] ?? '',
+                'paragraphs' => $paragraphs,
+                'features' => $features,
+                'packages' => [],
+                'addons' => [],
+            ];
+            
+            // Load packages for this service (already loaded in service object)
+            $service_packages = $service['packages'] ?? [];
+            foreach ($service_packages as $pkg) {
+                // Only include selected packages
+                $is_selected = false;
+                foreach ($selected_packages as $pkg_ref) {
+                    if (isset($pkg_ref['post_id']) && $pkg_ref['post_id'] == $pkg['post_id']) {
+                        $is_selected = true;
+                        break;
+                    }
+                }
+                if (!$is_selected) {
+                    continue;
+                }
+                
+                $package_id_meta = get_post_meta($pkg['post_id'], '_teqb_package_id', true);
+                if (empty($package_id_meta)) {
+                    continue;
+                }
+                
+                // Apply price override if set (check for non-null value, not just key existence)
+                $package_price = isset($package_overrides[$pkg['post_id']])
+                    ? $package_overrides[$pkg['post_id']]
+                    : $pkg['price'];
+                
+                // Debug: Log price calculation
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log(sprintf(
+                        'TEQB Package Price Debug - Package ID: %d, CPT Price: %s, Override: %s, Final Price: %s',
+                        $pkg['post_id'],
+                        $pkg['price'],
+                        isset($package_overrides[$pkg['post_id']]) ? $package_overrides[$pkg['post_id']] : 'none',
+                        $package_price
+                    ));
+                }
+                
+                $includes = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_includes', true));
+                $bonus_options = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_bonus_options', true));
+                
+                $package_data = [
+                    'id' => $package_id_meta,
+                    'name' => $pkg['name'],
+                    'price' => floatval($package_price),
+                    'includes' => $includes,
+                    'menu_order' => isset($pkg['menu_order']) ? intval($pkg['menu_order']) : 0, // Preserve menu_order for sorting
+                ];
+                
+                if (!empty($bonus_options)) {
+                    $package_data['bonusOptions'] = $bonus_options;
+                }
+                
+                $bonus_limit = intval(get_post_meta($pkg['post_id'], '_teqb_bonus_limit', true));
+                if ($bonus_limit > 0) {
+                    $package_data['bonusLimit'] = $bonus_limit;
+                }
+                
+                // Load additional time message if it exists
+                $additional_time_message = get_post_meta($pkg['post_id'], '_teqb_additional_time_message', true);
+                if (!empty($additional_time_message)) {
+                    $package_data['additionalTimeMessage'] = $additional_time_message;
+                }
+                
+                // Load bundled services if they exist
+                $bundled_services_json = get_post_meta($pkg['post_id'], '_teqb_bundled_services', true);
+                if ($bundled_services_json) {
+                    $bundled_services = json_decode($bundled_services_json, true);
+                    if (is_array($bundled_services)) {
+                        $package_data['bundledServices'] = $bundled_services;
+                    }
+                }
+                
+                $quote_data[$service_id]['packages'][] = $package_data;
+            }
+            
+            // Sort packages by menu_order to ensure correct display order
+            if (!empty($quote_data[$service_id]['packages'])) {
+                usort($quote_data[$service_id]['packages'], function($a, $b) {
+                    $order_a = isset($a['menu_order']) ? intval($a['menu_order']) : 0;
+                    $order_b = isset($b['menu_order']) ? intval($b['menu_order']) : 0;
+                    if ($order_a === $order_b) {
+                        // If menu_order is the same, sort by name
+                        return strcmp($a['name'], $b['name']);
+                    }
+                    return $order_a - $order_b;
+                });
+            }
+            
+            // Load addons for this service (already loaded in service object)
+            $service_addons = $service['addons'] ?? [];
+            foreach ($service_addons as $addon) {
+                // Only include selected addons
+                $is_selected = false;
+                foreach ($selected_addons as $addon_ref) {
+                    if (isset($addon_ref['post_id']) && $addon_ref['post_id'] == $addon['post_id']) {
+                        $is_selected = true;
+                        break;
+                    }
+                }
+                if (!$is_selected) {
+                    continue;
+                }
+                
+                $addon_id_meta = get_post_meta($addon['post_id'], '_teqb_addon_id', true);
+                if (empty($addon_id_meta)) {
+                    continue;
+                }
+                
+                $addon_data = [
+                    'id' => $addon_id_meta,
+                    'name' => $addon['name'],
+                ];
+                
+                // Apply price override if set (check for non-null value, not just key existence)
+                if (isset($addon_overrides[$addon['post_id']]) && $addon_overrides[$addon['post_id']] !== null) {
+                    // If override is set, use it as flat price
+                    $addon_data['price'] = $addon_overrides[$addon['post_id']];
+                } else {
+                    // Use original pricing structure
+                    if (!empty($addon['price'])) {
+                        $addon_data['price'] = floatval($addon['price']);
+                    }
+                    if (!empty($addon['base'])) {
+                        $addon_data['base'] = floatval($addon['base']);
+                    }
+                }
+                
+                if (!empty($addon['unit'])) {
+                    $addon_data['unit'] = $addon['unit'];
+                }
+                
+                if (!empty($addon['min'])) {
+                    $addon_data['min'] = intval($addon['min']);
+                }
+                
+                $options = $this->text_to_array(get_post_meta($addon['post_id'], '_teqb_options', true));
+                if (!empty($options)) {
+                    $addon_data['options'] = $options;
+                }
+                
+                $extras_json = get_post_meta($addon['post_id'], '_teqb_extras', true);
+                if ($extras_json) {
+                    $extras = json_decode($extras_json, true);
+                    if (is_array($extras) && !empty($extras)) {
+                        $addon_data['extras'] = $extras;
+                    }
+                }
+                
+                $quote_data[$service_id]['addons'][] = $addon_data;
+            }
+        }
+        
+        return $this->build_result_with_bundles($quote_data, $config);
+    }
+    
+    /**
+     * Build final result with bundles and rewards
+     */
+    protected function build_result_with_bundles($quote_data, $config) {
         $result = [
             'quoteData' => $quote_data,
         ];
@@ -1209,6 +1498,16 @@ class teqb_Quote_Builder extends teqb_Base {
         }
         
         return $result;
+    }
+    
+    /**
+     * Convert newline-separated text to array
+     */
+    protected function text_to_array($text) {
+        if (empty($text)) {
+            return [];
+        }
+        return array_filter(array_map('trim', explode("\n", $text)));
     }
 
     /**
@@ -1264,9 +1563,20 @@ class teqb_Quote_Builder extends teqb_Base {
      */
     public function localize_builder_data() {
         $builder_id = self::$current_builder_id;
+        
+        // Debug: Log footer hook execution
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('TEQB: Footer hook called, builder_id: ' . ($builder_id ? $builder_id : 'NULL'));
+        }
+        
         if ($builder_id) {
             $this->ensure_builder_data_localized($builder_id, true);
             self::$current_builder_id = null;
+        } else {
+            // Debug: No builder ID stored
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('TEQB: Footer hook called but no builder_id stored');
+            }
         }
     }
 
@@ -1283,15 +1593,27 @@ class teqb_Quote_Builder extends teqb_Base {
 
         $quote_data = $this->get_quote_data_for_frontend($builder_id);
         if (!$quote_data) {
+            // Debug: Log if no data found
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('TEQB: No quote data found for builder ID: ' . $builder_id);
+            }
             return;
         }
 
         // Add builder ID to the data
         $quote_data['builder_id'] = $builder_id;
+        
+        // Debug: Log what data is being output
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('TEQB: Localizing data for builder ID: ' . $builder_id);
+            error_log('TEQB: Services in data: ' . implode(', ', array_keys($quote_data['quoteData'] ?? [])));
+        }
 
         if ($force_footer_echo || $this->is_script_printed('quote-builder-js')) {
-            printf('<script type="text/javascript">window.quoteBuilderData = %s;</script>', wp_json_encode($quote_data));
+            // Output script in footer - this is the primary method for builder-specific data
+            printf('<script type="text/javascript">window.quoteBuilderData = %s;</script>', wp_json_encode($quote_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         } else {
+            // Try wp_localize_script as fallback (usually won't work since script is already enqueued)
             wp_localize_script('quote-builder-js', 'quoteBuilderData', $quote_data);
         }
 

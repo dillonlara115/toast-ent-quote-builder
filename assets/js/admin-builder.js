@@ -26,6 +26,7 @@
 
 	const defaults = data.defaults || {};
 	const initialConfig = data.config || {};
+	const cptData = data.cptData || { allServices: [], locations: [] };
 
 	const deepMerge = (target, source) => {
 		if (Array.isArray(target)) {
@@ -62,7 +63,10 @@
 			.replace(/^-+|-+$/g, '');
 
 	const defaultConfig = deepMerge({
-		services: [],
+		selectedServices: [],
+		selectedPackages: [],
+		selectedAddons: [],
+		location: '',
 		bundles: {
 			rules: [],
 			rewards: {
@@ -91,7 +95,32 @@
 		}
 	}, defaults);
 
-	const initialState = deepMerge(defaultConfig, initialConfig);
+	// Ensure arrays are initialized even if initialConfig has old format
+	const normalizedInitialConfig = {
+		...initialConfig,
+		selectedServices: Array.isArray(initialConfig.selectedServices) ? initialConfig.selectedServices : [],
+		selectedPackages: Array.isArray(initialConfig.selectedPackages) 
+			? initialConfig.selectedPackages.map(p => ({
+				...p,
+				// Clean up: if price_override is 0, null, or empty string, set to null
+				price_override: (p.price_override && p.price_override !== '' && p.price_override !== 0) 
+					? parseFloat(p.price_override) 
+					: null
+			}))
+			: [],
+		selectedAddons: Array.isArray(initialConfig.selectedAddons)
+			? initialConfig.selectedAddons.map(a => ({
+				...a,
+				// Clean up: if price_override is 0, null, or empty string, set to null
+				price_override: (a.price_override && a.price_override !== '' && a.price_override !== 0)
+					? parseFloat(a.price_override)
+					: null
+			}))
+			: [],
+		location: initialConfig.location || '',
+	};
+	
+	const initialState = deepMerge(defaultConfig, normalizedInitialConfig);
 
 	const createEmptyService = () => ({
 		id: '',
@@ -787,39 +816,237 @@
 			})
 		);
 
-	const ServicesSection = ({ services, onChange }) =>
-		el(Section, {
-			title: __('Services', 'teqb'),
-			description: __('Define services, packages, and add-ons that visitors can select.', 'teqb')
+	const ServicesSection = ({ config, onChange, cptData }) => {
+		const allServices = cptData.allServices || [];
+		const locations = cptData.locations || [];
+		const selectedServiceIds = config.selectedServices || [];
+		const selectedPackages = config.selectedPackages || [];
+		const selectedAddons = config.selectedAddons || [];
+		const locationFilter = config.location || '';
+		
+		// Filter services by location if specified
+		const availableServices = locationFilter
+			? allServices.filter(service => {
+				// Check if service has packages/addons for this location
+				const hasPackages = service.packages && service.packages.length > 0;
+				const hasAddons = service.addons && service.addons.length > 0;
+				return hasPackages || hasAddons;
+			})
+			: allServices;
+		
+		const toggleService = (servicePostId) => {
+			const newSelected = selectedServiceIds.includes(servicePostId)
+				? selectedServiceIds.filter(id => id !== servicePostId)
+				: [...selectedServiceIds, servicePostId];
+			onChange({ ...config, selectedServices: newSelected });
+		};
+		
+		const togglePackage = (packagePostId, basePrice) => {
+			const existing = selectedPackages.find(p => p.post_id === packagePostId);
+			const newSelected = existing
+				? selectedPackages.filter(p => p.post_id !== packagePostId)
+				: [...selectedPackages, { post_id: packagePostId, price_override: null }];
+			onChange({ ...config, selectedPackages: newSelected });
+		};
+		
+		const toggleAddon = (addonPostId) => {
+			const existing = selectedAddons.find(a => a.post_id === addonPostId);
+			const newSelected = existing
+				? selectedAddons.filter(a => a.post_id !== addonPostId)
+				: [...selectedAddons, { post_id: addonPostId, price_override: null }];
+			onChange({ ...config, selectedAddons: newSelected });
+		};
+		
+		const updatePackagePriceOverride = (packagePostId, priceOverride) => {
+			const newSelected = selectedPackages.map(p => 
+				p.post_id === packagePostId
+					? { ...p, price_override: (priceOverride && priceOverride !== '' && !isNaN(parseFloat(priceOverride))) ? parseFloat(priceOverride) : null }
+					: p
+			);
+			onChange({ ...config, selectedPackages: newSelected });
+		};
+		
+		const updateAddonPriceOverride = (addonPostId, priceOverride) => {
+			const newSelected = selectedAddons.map(a => 
+				a.post_id === addonPostId
+					? { ...a, price_override: (priceOverride && priceOverride !== '' && !isNaN(parseFloat(priceOverride))) ? parseFloat(priceOverride) : null }
+					: a
+			);
+			onChange({ ...config, selectedAddons: newSelected });
+		};
+		
+		const getPackageOverride = (packagePostId) => {
+			const found = selectedPackages.find(p => p.post_id === packagePostId);
+			return found ? found.price_override : null;
+		};
+		
+		const getAddonOverride = (addonPostId) => {
+			const found = selectedAddons.find(a => a.post_id === addonPostId);
+			return found ? found.price_override : null;
+		};
+		
+		const isPackageSelected = (packagePostId) => {
+			return selectedPackages.some(p => p.post_id === packagePostId);
+		};
+		
+		const isAddonSelected = (addonPostId) => {
+			return selectedAddons.some(a => a.post_id === addonPostId);
+		};
+		
+		return el(Section, {
+			title: __('Services, Packages & Add-ons', 'teqb'),
+			description: __('Select services, packages, and add-ons from your catalog. You can override pricing per builder.', 'teqb')
 		},
-		el('div', { className: 'teqb-admin-multi' },
-			services.map((service, idx) =>
-				el(ServiceEditor, {
-					key: `service-${idx}`,
-					service,
-					allServices: services,
-					onChange: (next) => {
-						const nextServices = services.slice();
-						nextServices[idx] = next;
-						onChange(nextServices);
+			locations.length > 0 ? el(SelectControl, {
+				label: __('Filter by Location', 'teqb'),
+				help: __('Filter available services by location. Leave blank to show all.', 'teqb'),
+				value: locationFilter,
+				options: [
+					{ label: __('All Locations', 'teqb'), value: '' },
+					...locations.map(loc => ({ label: loc.name, value: loc.slug }))
+				],
+				onChange: (value) => onChange({ ...config, location: value })
+			}) : null,
+			
+			availableServices.length === 0 ? el(Notice, {
+				status: 'warning'
+			}, __('No services found. Please create services, packages, and add-ons first.', 'teqb')) : null,
+			
+			el('div', { className: 'teqb-cpt-services-list', style: { marginTop: '20px' } },
+				availableServices.map(service => {
+					const isServiceSelected = selectedServiceIds.includes(service.post_id);
+					const servicePackages = service.packages || [];
+					const serviceAddons = service.addons || [];
+					
+					return el('div', {
+						key: `service-${service.post_id}`,
+						className: 'teqb-cpt-service-card',
+						style: {
+							border: '1px solid #ddd',
+							borderRadius: '8px',
+							padding: '16px',
+							marginBottom: '16px',
+							backgroundColor: isServiceSelected ? '#f0f9ff' : '#fff'
+						}
 					},
-					onRemove: () => {
-						const nextServices = services.slice();
-						nextServices.splice(idx, 1);
-						onChange(nextServices);
-					}
+						el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '12px' } },
+							el(CheckboxControl, {
+								checked: isServiceSelected,
+								onChange: () => toggleService(service.post_id),
+								label: '' // Add empty label to prevent WordPress from rendering differently
+							}),
+							el('div', { style: { marginLeft: '12px', flex: 1 } },
+								el('h3', { style: { margin: 0 } }, service.label),
+								service.subtitle ? el('p', { style: { margin: '4px 0 0', color: '#666' } }, service.subtitle) : null
+							)
+						),
+						
+						isServiceSelected ? el('div', { style: { marginLeft: '32px', marginTop: '16px' } },
+							servicePackages.length > 0 ? el('div', { style: { marginBottom: '20px' } },
+								el('h4', { style: { marginBottom: '12px' } }, __('Packages', 'teqb')),
+								servicePackages.map(pkg => {
+									const pkgSelected = isPackageSelected(pkg.post_id);
+									const priceOverride = getPackageOverride(pkg.post_id);
+									const basePrice = parseFloat(pkg.price) || 0;
+									const displayPriceNum = priceOverride !== null && priceOverride !== undefined 
+										? (parseFloat(priceOverride) || 0) 
+										: basePrice;
+									const displayPrice = typeof displayPriceNum === 'number' && !isNaN(displayPriceNum) ? displayPriceNum : 0;
+									
+									return el('div', {
+										key: `pkg-${pkg.post_id}`,
+										style: {
+											border: '1px solid #e5e7eb',
+											borderRadius: '4px',
+											padding: '12px',
+											marginBottom: '8px',
+											backgroundColor: pkgSelected ? '#f9fafb' : '#fff'
+										}
+									},
+										el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+											el(CheckboxControl, {
+												checked: pkgSelected,
+												onChange: () => togglePackage(pkg.post_id, basePrice),
+												label: '' // Add empty label to prevent WordPress from rendering differently
+											}),
+											el('div', { style: { flex: 1 } },
+												el('strong', null, pkg.name),
+												el('span', { style: { marginLeft: '8px', color: '#666' } },
+													`$${basePrice.toFixed(2)}`
+												)
+											),
+											pkgSelected ? el(TextControl, {
+												type: 'number',
+												label: __('Price Override', 'teqb'),
+												help: __('Leave blank to use default price', 'teqb'),
+												value: priceOverride !== null && priceOverride !== undefined ? String(priceOverride) : '',
+												onChange: (value) => updatePackagePriceOverride(pkg.post_id, value),
+												style: { width: '150px' }
+											}) : null
+										),
+										pkgSelected && priceOverride !== null && priceOverride !== undefined ? el('p', {
+											style: { margin: '4px 0 0 32px', fontSize: '12px', color: '#059669' }
+										}, `Using override: $${displayPrice.toFixed(2)}`) : null
+									);
+								})
+							) : null,
+							
+							serviceAddons.length > 0 ? el('div', null,
+								el('h4', { style: { marginBottom: '12px' } }, __('Add-ons', 'teqb')),
+								serviceAddons.map(addon => {
+									const addonSelected = isAddonSelected(addon.post_id);
+									const priceOverride = getAddonOverride(addon.post_id);
+									const basePrice = parseFloat(addon.price || addon.base || 0) || 0;
+									const displayPriceNum = priceOverride !== null && priceOverride !== undefined 
+										? (parseFloat(priceOverride) || 0) 
+										: basePrice;
+									const displayPrice = typeof displayPriceNum === 'number' && !isNaN(displayPriceNum) ? displayPriceNum : 0;
+									
+									return el('div', {
+										key: `addon-${addon.post_id}`,
+										style: {
+											border: '1px solid #e5e7eb',
+											borderRadius: '4px',
+											padding: '12px',
+											marginBottom: '8px',
+											backgroundColor: addonSelected ? '#f9fafb' : '#fff'
+										}
+									},
+										el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+											el(CheckboxControl, {
+												checked: addonSelected,
+												onChange: () => toggleAddon(addon.post_id),
+												label: '' // Add empty label to prevent WordPress from rendering differently
+											}),
+											el('div', { style: { flex: 1 } },
+												el('strong', null, addon.name),
+												el('span', { style: { marginLeft: '8px', color: '#666' } },
+													addon.base && addon.unit
+														? `$${basePrice.toFixed(2)}/${addon.unit}`
+														: `$${basePrice.toFixed(2)}`
+												)
+											),
+											addonSelected ? el(TextControl, {
+												type: 'number',
+												label: __('Price Override', 'teqb'),
+												help: __('Leave blank to use default price', 'teqb'),
+												value: priceOverride !== null && priceOverride !== undefined ? String(priceOverride) : '',
+												onChange: (value) => updateAddonPriceOverride(addon.post_id, value),
+												style: { width: '150px' }
+											}) : null
+										),
+										addonSelected && priceOverride !== null && priceOverride !== undefined ? el('p', {
+											style: { margin: '4px 0 0 32px', fontSize: '12px', color: '#059669' }
+										}, `Using override: $${displayPrice.toFixed(2)}`) : null
+									);
+								})
+							) : null
+						) : null
+					);
 				})
-			),
-			el(Button, {
-				variant: 'primary',
-				onClick: () => {
-					const nextServices = services.slice();
-					nextServices.push(createEmptyService());
-					onChange(nextServices);
-				}
-			}, __('Add Service', 'teqb'))
-		)
-	);
+			)
+		);
+	};
 
 	const BundlesSection = ({ bundles, onChange }) => {
 		const rules = Array.isArray(bundles.rules) ? bundles.rules : [];
@@ -939,7 +1166,6 @@
 			}
 		}, [config]);
 
-		const services = Array.isArray(config.services) ? config.services : [];
 		const bundles = config.bundles || {};
 		const form = config.form || {};
 		const notifications = config.notifications || {};
@@ -948,10 +1174,11 @@
 			el(Notice, {
 				status: 'info',
 				isDismissible: false
-			}, __('Use this editor to configure the quote builder experience. Changes are stored as post meta and will be wired to the front-end in a later phase.', 'teqb')),
+			}, __('Select services, packages, and add-ons from your catalog. Configure bundle discounts and form settings below.', 'teqb')),
 			ServicesSection({
-				services,
-				onChange: (next) => setConfig({ ...config, services: next })
+				config,
+				onChange: (next) => setConfig(next),
+				cptData: cptData
 			}),
 			BundlesSection({
 				bundles,

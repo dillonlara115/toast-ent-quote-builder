@@ -4,6 +4,7 @@
  *
  */
 require_once plugin_dir_path(dirname(__FILE__)) . 'classes/setup.php';
+require_once plugin_dir_path(dirname(__FILE__)) . 'classes/post-types.php';
 
 class teqb_Plugin extends teqb_Setup {
 	public $config;
@@ -34,6 +35,9 @@ class teqb_Plugin extends teqb_Setup {
 	 * Register custom post types used by the plugin.
 	 */
 	public function register_post_types() {
+		// Register new CPTs (Services, Packages, Add-ons) and Location taxonomy
+		teqb_Post_Types::register();
+		
 		$labels = array(
 			'name'                  => __('Quote Entries', 'teqb'),
 			'singular_name'         => __('Quote Entry', 'teqb'),

@@ -620,15 +620,60 @@
         return 'austin';
     };
 
-    // Get quote data for current location
+    // Get quote data - initialize with hardcoded data, will be overridden if builder data exists
     const location = getLocation();
-    const quoteData = quoteDataByLocation[location] || quoteDataByLocation.austin;
+    let quoteData = quoteDataByLocation[location] || quoteDataByLocation.austin;
+    let bundleDiscounts = [];
+    let rewardCatalog = {};
     
-    // Debug: Log detected location (remove in production if desired)
-    if (typeof console !== 'undefined' && console.log) {
-        console.log('Quote Builder: Detected location:', location);
-        console.log('Quote Builder: Available locations:', Object.keys(quoteDataByLocation));
-    }
+    // Function to load builder data (called at init time, not load time)
+    const loadBuilderData = () => {
+        // Check if builder data is localized from backend
+        if (typeof window !== 'undefined' && window.quoteBuilderData && window.quoteBuilderData.quoteData) {
+            quoteData = window.quoteBuilderData.quoteData;
+            bundleDiscounts = window.quoteBuilderData.bundleDiscounts || [];
+            rewardCatalog = window.quoteBuilderData.rewardCatalog || {};
+            
+            if (typeof console !== 'undefined' && console.log) {
+                console.log('Quote Builder: Using localized builder data', window.quoteBuilderData.builder_id);
+                console.log('Quote Builder: Services in localized data:', Object.keys(quoteData));
+                console.log('Quote Builder: Full quoteBuilderData:', window.quoteBuilderData);
+            }
+            return true;
+        } else {
+            // Use hardcoded location-based data
+            bundleDiscounts = bundleDiscountsByLocation[location] || bundleDiscountsByLocation.austin;
+            
+            // Initialize reward catalog with hardcoded data if not already set
+            if (!rewardCatalog || Object.keys(rewardCatalog).length === 0) {
+                const signatureTouches = signatureTouchesByLocation[location] || signatureTouchesByLocation.austin;
+                const luxuryEnhancements = luxuryEnhancementsByLocation[location] || luxuryEnhancementsByLocation.austin;
+                rewardCatalog = {
+                    signature_touch: {
+                        label: 'Signature Touch',
+                        pluralLabel: 'Signature Touches',
+                        optionsHeading: 'Signature Touch Options:',
+                        options: signatureTouches
+                    },
+                    luxury_enhancement: {
+                        label: 'Luxury Enhancement',
+                        pluralLabel: 'Luxury Enhancements',
+                        optionsHeading: 'Luxury Enhancement Options:',
+                        options: luxuryEnhancements
+                    }
+                };
+            }
+            
+            if (typeof console !== 'undefined' && console.log) {
+                console.log('Quote Builder: Using hardcoded data for location:', location);
+                console.log('Quote Builder: window.quoteBuilderData exists?', typeof window !== 'undefined' && typeof window.quoteBuilderData !== 'undefined');
+                if (typeof window !== 'undefined' && window.quoteBuilderData) {
+                    console.log('Quote Builder: window.quoteBuilderData:', window.quoteBuilderData);
+                }
+            }
+            return false;
+        }
+    };
 
     // Location-based signature touches and luxury enhancements
     const signatureTouchesByLocation = {
@@ -687,24 +732,6 @@
             'Dance Floor Lighting (2 Moving Heads on Totems; $395 value)',
             'TV DJ Booth ($395 value)'
         ]
-    };
-
-    const signatureTouches = signatureTouchesByLocation[location] || signatureTouchesByLocation.austin;
-    const luxuryEnhancements = luxuryEnhancementsByLocation[location] || luxuryEnhancementsByLocation.austin;
-
-    const rewardCatalog = {
-        signature_touch: {
-            label: 'Signature Touch',
-            pluralLabel: 'Signature Touches',
-            optionsHeading: 'Signature Touch Options:',
-            options: signatureTouches
-        },
-        luxury_enhancement: {
-            label: 'Luxury Enhancement',
-            pluralLabel: 'Luxury Enhancements',
-            optionsHeading: 'Luxury Enhancement Options:',
-            options: luxuryEnhancements
-        }
     };
 
     const numberToWord = (num) => {
@@ -807,8 +834,10 @@
         ]
     };
 
-    // Get bundle discounts for current location
-    const bundleDiscounts = bundleDiscountsByLocation[location] || bundleDiscountsByLocation.austin;
+    // Use localized bundle discounts if available, otherwise use hardcoded location-based data
+    if (!bundleDiscounts || bundleDiscounts.length === 0) {
+        bundleDiscounts = bundleDiscountsByLocation[location] || bundleDiscountsByLocation.austin;
+    }
 
     const formatCurrencyValue = (amount) => {
         return new Intl.NumberFormat('en-US', {
@@ -1067,6 +1096,8 @@
             formValidationAttempted: false,
 
             init() {
+                // Load builder data at init time (after DOM is ready and script tags are parsed)
+                loadBuilderData();
                 this.availableServices = buildAvailableServices();
                 this.setEventDateMin();
             },
