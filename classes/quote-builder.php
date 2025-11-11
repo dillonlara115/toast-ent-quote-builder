@@ -325,12 +325,28 @@ class teqb_Quote_Builder extends teqb_Base {
             wp_send_json_error(['message' => 'Please fill in all required fields with valid information.']);
         }
         
+        // Get builder ID from submission if provided
+        $builder_id = null;
+        if (!empty($_POST['builder_id'])) {
+            $builder_id = absint($_POST['builder_id']);
+            if ($builder_id <= 0) {
+                $builder_id = null;
+            }
+        }
+        
+        // Add builder ID to submission data for storage
+        if ($builder_id) {
+            $submission_data['builder_id'] = $builder_id;
+        }
+        
         $entry_id = $this->store_quote_entry($submission_data);
         if ($entry_id) {
             $submission_data['entry_id'] = $entry_id;
         }
 
-        $send_result = $this->send_quote_notifications($submission_data);
+        $send_result = $this->send_quote_notifications($submission_data, array(
+            'builder_id' => $builder_id,
+        ));
 
         if ($entry_id) {
             update_post_meta($entry_id, '_teqb_admin_email_sent', $send_result['admin'] ? current_time('mysql') : '');
@@ -828,6 +844,11 @@ class teqb_Quote_Builder extends teqb_Base {
         update_post_meta($post_id, '_teqb_quote_discount_label', $data['discount_label']);
         update_post_meta($post_id, '_teqb_quote_final_total', $data['final_total']);
         update_post_meta($post_id, '_teqb_quote_bundle_rewards', isset($data['bundle_rewards']) ? $data['bundle_rewards'] : []);
+        
+        // Store builder ID if provided
+        if (!empty($data['builder_id'])) {
+            update_post_meta($post_id, '_teqb_quote_builder_id', absint($data['builder_id']));
+        }
 
         return $post_id;
     }
@@ -841,23 +862,48 @@ class teqb_Quote_Builder extends teqb_Base {
             'custom_email'       => '',
             'send_admin_copy'    => true,
             'send_customer_copy' => true,
+            'builder_id'         => null,
         );
         $args = wp_parse_args($args, $defaults);
 
-        $settings = get_option('teqb_settings', []);
+        // Check for builder-specific notification email override first
         $notification_email = '';
-        if (!empty($settings['notification_email'])) {
-            $sanitized = sanitize_email($settings['notification_email']);
-            if (!empty($sanitized)) {
-                $notification_email = $sanitized;
+        if (!empty($args['builder_id'])) {
+            $builder_config = $this->get_builder_config($args['builder_id']);
+            if (!empty($builder_config) && is_array($builder_config)) {
+                if (!empty($builder_config['notifications']['email'])) {
+                    $sanitized = sanitize_email($builder_config['notifications']['email']);
+                    if (!empty($sanitized)) {
+                        $notification_email = $sanitized;
+                    }
+                }
             }
         }
+
+        // Fall back to global settings if no builder-specific override
+        if (empty($notification_email)) {
+            $settings = get_option('teqb_settings', []);
+            if (!empty($settings['notification_email'])) {
+                $sanitized = sanitize_email($settings['notification_email']);
+                if (!empty($sanitized)) {
+                    $notification_email = $sanitized;
+                }
+            }
+        }
+
+        // Final fallback to WordPress admin email
         if (empty($notification_email)) {
             $notification_email = get_option('admin_email');
         }
 
         $email_subject = apply_filters('teqb_admin_email_subject', 'New Quote Request from ' . $submission_data['name'], $submission_data);
         $email_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'admin');
+        
+        // Add CC to vanessa@brianlawrence.com for all admin notifications
+        $cc_email = 'vanessa@brianlawrence.com';
+        if (is_email($cc_email)) {
+            $email_headers[] = 'Cc: ' . sanitize_email($cc_email);
+        }
 
         $admin_email = apply_filters('teqb_admin_email', $notification_email, $submission_data);
         $admin_message = $this->generate_admin_email_html($submission_data);
@@ -913,6 +959,14 @@ class teqb_Quote_Builder extends teqb_Base {
         $submission_data = $this->build_submission_data_from_entry($entry_id);
         if (!$submission_data) {
             return false;
+        }
+
+        // Get builder ID from entry if available
+        if (empty($args['builder_id'])) {
+            $stored_builder_id = get_post_meta($entry_id, '_teqb_quote_builder_id', true);
+            if (!empty($stored_builder_id)) {
+                $args['builder_id'] = absint($stored_builder_id);
+            }
         }
 
         $result = $this->send_quote_notifications($submission_data, $args);
@@ -1231,6 +1285,9 @@ class teqb_Quote_Builder extends teqb_Base {
         if (!$quote_data) {
             return;
         }
+
+        // Add builder ID to the data
+        $quote_data['builder_id'] = $builder_id;
 
         if ($force_footer_echo || $this->is_script_printed('quote-builder-js')) {
             printf('<script type="text/javascript">window.quoteBuilderData = %s;</script>', wp_json_encode($quote_data));

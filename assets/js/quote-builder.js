@@ -2759,7 +2759,8 @@
                     discount: this.discount,
                     discount_label: this.discountLabel,
                     final_total: this.finalTotal,
-                    bundle_rewards: JSON.stringify(this.bundleRewards)
+                    bundle_rewards: JSON.stringify(this.bundleRewards),
+                    builder_id: (window.quoteBuilderData && window.quoteBuilderData.builder_id) ? window.quoteBuilderData.builder_id : ''
                 };
 
                 fetch(quoteBuilderConfig.ajaxUrl, {
