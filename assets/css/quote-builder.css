@@ -1503,6 +1503,28 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
+.form-input-error {
+    border-color: #dc2626;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.form-input-error:focus {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+.form-label-error {
+    color: #dc2626;
+}
+
+.form-error-message {
+    margin-top: 4px;
+    font-size: 0.875rem;
+    color: #dc2626;
+    font-weight: 500;
+}
+
 .success-message {
     text-align: center;
     padding: 48px 24px;

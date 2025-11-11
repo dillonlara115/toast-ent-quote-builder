@@ -18,6 +18,7 @@
 		Button,
 		CheckboxControl,
 		SelectControl,
+		FormTokenField,
 		Notice
 	} = wp.components;
 
@@ -61,16 +62,6 @@
 			.replace(/^-+|-+$/g, '');
 
 	const defaultConfig = deepMerge({
-		general: {
-			headline: '',
-			subheadline: '',
-			description: '',
-			pricing_note: '',
-			hero_quote: {
-				text: '',
-				attribution: ''
-			}
-		},
 		services: [],
 		bundles: {
 			rules: [],
@@ -108,10 +99,6 @@
 		subtitle: '',
 		paragraphs: [],
 		features: [],
-		quote: {
-			text: '',
-			attribution: ''
-		},
 		packages: [],
 		addons: []
 	});
@@ -212,16 +199,13 @@
 			}))
 			: [];
 
-		// Get upgrade packages for the selected service
-		const upgradePackageOptions = selectedService && Array.isArray(selectedService.packages)
-			? selectedService.packages.map((pkg) => ({
-				value: pkg.id || '',
-				label: pkg.name || pkg.id || ''
-			}))
-			: [];
-
 		const upgradePackagesValue = Array.isArray(bundledService.upgradePackages)
 			? bundledService.upgradePackages
+			: [];
+		const upgradeSuggestions = selectedService && Array.isArray(selectedService.packages)
+			? selectedService.packages
+				.map((pkg) => pkg.id || '')
+				.filter(Boolean)
 			: [];
 
 		return el('div', { className: 'teqb-nested-card', style: { border: '1px solid #ddd', padding: '12px', marginBottom: '12px' } },
@@ -246,18 +230,21 @@
 					disabled: !bundledService.serviceId
 				})
 			),
-			el(TextareaControl, {
-				label: __('Upgrade Packages', 'teqb'),
-				help: __('Enter package IDs that can be used as upgrades, one per line.', 'teqb'),
-				value: upgradePackagesValue.join('\n'),
-				placeholder: __('e.g., all_around_the_world\nmirror_mirror', 'teqb'),
-				onChange: (text) => {
-					const items = text
-						.split('\n')
-						.map((line) => line.trim())
-						.filter(Boolean);
-					handleUpdate('upgradePackages', items);
-				}
+			el(FormTokenField, {
+				label: __('Upgradeable Packages', 'teqb'),
+				help: __('Pick which packages can replace the bundled option (type to add custom IDs).', 'teqb'),
+				value: upgradePackagesValue,
+				suggestions: upgradeSuggestions,
+				disabled: !bundledService.serviceId,
+				onChange: (tokens) => {
+					const formatted = Array.isArray(tokens)
+						? tokens.map((token) => (token || '').trim()).filter(Boolean)
+						: [];
+					handleUpdate('upgradePackages', formatted);
+				},
+				placeholder: upgradeSuggestions.length
+					? __('Start typing a package ID…', 'teqb')
+					: __('Select a service to choose packages…', 'teqb')
 			}),
 			el(TextControl, {
 				label: __('Message', 'teqb'),
@@ -610,18 +597,6 @@
 				value: service.features || [],
 				onChange: (items) => updateField('features', items)
 			}),
-			el(TextareaControl, {
-				label: __('Quote Text', 'teqb'),
-				placeholder: __('“The dance floor was packed all night long!”', 'teqb'),
-				value: (service.quote && service.quote.text) || '',
-				onChange: (value) => updateNested(['quote', 'text'], value)
-			}),
-			el(TextControl, {
-				label: __('Quote Attribution', 'teqb'),
-				placeholder: __('e.g., Sarah M., Houston bride', 'teqb'),
-				value: (service.quote && service.quote.attribution) || '',
-				onChange: (value) => updateNested(['quote', 'attribution'], value)
-			}),
 			el('div', { className: 'teqb-admin-multi' },
 				el('h3', null, __('Packages', 'teqb')),
 				packages.map((pkg, idx) =>
@@ -812,64 +787,6 @@
 			})
 		);
 
-	const GeneralSection = ({ general, onUpdate }) =>
-		el(Section, {
-			title: __('General Information', 'teqb'),
-			description: __('Set the headline, supporting copy, and default pricing note for this builder.', 'teqb')
-		},
-		el('div', { className: 'teqb-nested-grid' },
-			el(TextControl, {
-				label: __('Headline', 'teqb'),
-				help: __('Displayed prominently above the builder.', 'teqb'),
-				placeholder: __('e.g., Craft Your Perfect Toast Experience', 'teqb'),
-				value: general.headline || '',
-				onChange: (value) => onUpdate('headline', value)
-			}),
-			el(TextControl, {
-				label: __('Subheadline', 'teqb'),
-				help: __('Short supporting line beneath the headline.', 'teqb'),
-				placeholder: __('e.g., Choose your services and unlock exclusive rewards', 'teqb'),
-				value: general.subheadline || '',
-				onChange: (value) => onUpdate('subheadline', value)
-			})
-		),
-		el(TextareaControl, {
-			label: __('Description / Intro Copy', 'teqb'),
-			help: __('Long-form introduction that appears before step one.', 'teqb'),
-			placeholder: __('Welcome guests with a brief overview of how the quote builder works.', 'teqb'),
-			value: general.description || '',
-			onChange: (value) => onUpdate('description', value)
-		}),
-		el(TextareaControl, {
-			label: __('Pricing Note', 'teqb'),
-			help: __('Displayed in the pricing notes modal. Include seasonal surcharges or disclaimers.', 'teqb'),
-			placeholder: __('All packages include tax. Add $200 for October Saturday events.', 'teqb'),
-			value: general.pricing_note || '',
-			onChange: (value) => onUpdate('pricing_note', value)
-		}),
-		el(TextareaControl, {
-			label: __('Hero Quote', 'teqb'),
-			help: __('Inspirational quote or testimonial displayed near the top.', 'teqb'),
-			placeholder: __('“Our wedding was unforgettable thanks to the Toast team!”', 'teqb'),
-			value: (general.hero_quote && general.hero_quote.text) || '',
-			onChange: (value) => {
-				const next = { ...(general.hero_quote || {}) };
-				next.text = value;
-				onUpdate('hero_quote', next);
-			}
-		}),
-		el(TextControl, {
-			label: __('Hero Quote Attribution', 'teqb'),
-			placeholder: __('e.g., Jordan & Casey, Austin, TX', 'teqb'),
-			value: (general.hero_quote && general.hero_quote.attribution) || '',
-			onChange: (value) => {
-				const next = { ...(general.hero_quote || {}) };
-				next.attribution = value;
-				onUpdate('hero_quote', next);
-			}
-		})
-	);
-
 	const ServicesSection = ({ services, onChange }) =>
 		el(Section, {
 			title: __('Services', 'teqb'),
@@ -1022,7 +939,6 @@
 			}
 		}, [config]);
 
-		const general = config.general || {};
 		const services = Array.isArray(config.services) ? config.services : [];
 		const bundles = config.bundles || {};
 		const form = config.form || {};
@@ -1033,13 +949,6 @@
 				status: 'info',
 				isDismissible: false
 			}, __('Use this editor to configure the quote builder experience. Changes are stored as post meta and will be wired to the front-end in a later phase.', 'teqb')),
-			GeneralSection({
-				general,
-				onUpdate: (field, value) => {
-					const next = { ...general, [field]: value };
-					setConfig({ ...config, general: next });
-				}
-			}),
 			ServicesSection({
 				services,
 				onChange: (next) => setConfig({ ...config, services: next })
