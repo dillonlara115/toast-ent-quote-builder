@@ -436,7 +436,8 @@
         eventType: '',
         guests: '',
         message: '',
-        referralSource: ''
+        referralSource: '',
+        eventVenueLocation: ''
     });
 
     const serviceContent = {
@@ -615,6 +616,8 @@
             formData: defaultFormData(),
             availableServices: [],
             showPricingNotes: false,
+            invalidFields: {},
+            formValidationAttempted: false,
 
             init() {
                 this.availableServices = buildAvailableServices();
@@ -854,8 +857,93 @@
                     this.formData.phone.trim() !== '' &&
                     this.formData.eventDate !== '' &&
                     this.formData.eventType.trim() !== '' &&
-                    this.formData.guests !== ''
+                    this.formData.guests !== '' &&
+                    this.formData.referralSource.trim() !== '' &&
+                    this.formData.eventVenueLocation.trim() !== ''
                 );
+            },
+
+            validateFormFields() {
+                const errors = {};
+                
+                if (this.formData.name.trim() === '') {
+                    errors.name = 'Your Name is required';
+                }
+                
+                if (this.formData.email.trim() === '') {
+                    errors.email = 'Email Address is required';
+                } else if (!this.validateEmail(this.formData.email)) {
+                    errors.email = 'Please enter a valid email address';
+                }
+                
+                if (this.formData.phone.trim() === '') {
+                    errors.phone = 'Phone Number is required';
+                }
+                
+                if (this.formData.eventDate === '') {
+                    errors.eventDate = 'Event Date is required';
+                }
+                
+                if (this.formData.eventType.trim() === '') {
+                    errors.eventType = 'Event Type is required';
+                }
+                
+                if (this.formData.guests === '' || this.formData.guests === '0') {
+                    errors.guests = 'Number of Guests is required';
+                }
+                
+                if (this.formData.referralSource.trim() === '') {
+                    errors.referralSource = 'How did you hear of us is required';
+                }
+                
+                if (this.formData.eventVenueLocation.trim() === '') {
+                    errors.eventVenueLocation = 'Event venue location is required';
+                }
+                
+                this.invalidFields = errors;
+                this.formValidationAttempted = true;
+                
+                return Object.keys(errors).length === 0;
+            },
+
+            clearFieldError(fieldName) {
+                if (this.invalidFields[fieldName]) {
+                    delete this.invalidFields[fieldName];
+                    this.invalidFields = { ...this.invalidFields };
+                }
+            },
+
+            isFieldInvalid(fieldName) {
+                return this.formValidationAttempted && this.invalidFields[fieldName];
+            },
+
+            getFieldErrorMessage(fieldName) {
+                return this.invalidFields[fieldName] || '';
+            },
+
+            getValidationErrorMessage() {
+                const fieldNames = Object.keys(this.invalidFields);
+                if (fieldNames.length === 0) {
+                    return '';
+                }
+                
+                const fieldLabels = {
+                    name: 'Your Name',
+                    email: 'Email Address',
+                    phone: 'Phone Number',
+                    eventDate: 'Event Date',
+                    eventType: 'Event Type',
+                    guests: 'Number of Guests',
+                    referralSource: 'How did you hear of us',
+                    eventVenueLocation: 'Event venue location'
+                };
+                
+                const missingFields = fieldNames.map(field => fieldLabels[field] || field).join(', ');
+                
+                if (fieldNames.length === 1) {
+                    return `Please complete the required field: ${missingFields}.`;
+                }
+                return `Please complete the following required fields: ${missingFields}.`;
             },
 
             toggleService(serviceId) {
@@ -2129,6 +2217,8 @@
                 this.resetUpgradeFlow();
                 this.currentStep = 4;
                 this.stepError = '';
+                this.invalidFields = {};
+                this.formValidationAttempted = false;
                 this.recalculateTotals();
             },
 
@@ -2156,13 +2246,17 @@
                 this.submitMessage = '';
                 this.submitSuccess = false;
                 this.formData = defaultFormData();
+                this.invalidFields = {};
+                this.formValidationAttempted = false;
                 this.setEventDateMin();
                 this.recalculateTotals();
             },
 
             submitForm() {
-                if (!this.isContactValid) {
-                    this.stepError = 'Please complete the contact information so we can reach you.';
+                // Validate all fields and highlight errors
+                if (!this.validateFormFields()) {
+                    this.stepError = this.getValidationErrorMessage();
+                    this.scrollToBuilderTop();
                     return;
                 }
 
@@ -2170,6 +2264,8 @@
                 this.submitMessage = '';
                 this.submitSuccess = false;
                 this.isSubmitting = true;
+                this.formValidationAttempted = false;
+                this.invalidFields = {};
 
                 this.recalculateTotals();
 
@@ -2205,6 +2301,7 @@
                     guests: this.formData.guests,
                     message: this.formData.message,
                     referral_source: this.formData.referralSource,
+                    event_venue_location: this.formData.eventVenueLocation,
                     services: JSON.stringify(servicePayload),
                     subtotal: this.subtotal,
                     discount: this.discount,

@@ -239,6 +239,7 @@ class teqb_Quote_Builder extends teqb_Base {
         $guests     = intval($_POST['guests'] ?? 0);
         $message    = sanitize_textarea_field(wp_unslash($_POST['message'] ?? ''));
         $referral_source = sanitize_text_field(wp_unslash($_POST['referral_source'] ?? ''));
+        $event_venue_location = sanitize_text_field(wp_unslash($_POST['event_venue_location'] ?? ''));
 
         $services_raw = wp_unslash($_POST['services'] ?? '[]');
         $services_decoded = json_decode($services_raw, true);
@@ -275,6 +276,7 @@ class teqb_Quote_Builder extends teqb_Base {
             'final_total' => $final_total,
             'message' => $message,
             'referral_source' => $referral_source,
+            'event_venue_location' => $event_venue_location,
             'bundle_rewards' => $bundle_rewards,
         ]);
         
@@ -289,6 +291,10 @@ class teqb_Quote_Builder extends teqb_Base {
         
         // Default validation
         if (empty($name) || empty($email) || !is_email($email)) {
+            wp_send_json_error(['message' => 'Please fill in all required fields with valid information.']);
+        }
+        
+        if (empty($referral_source) || empty($event_venue_location)) {
             wp_send_json_error(['message' => 'Please fill in all required fields with valid information.']);
         }
         
@@ -340,7 +346,10 @@ class teqb_Quote_Builder extends teqb_Base {
                 <p><strong>Guests:</strong> <?php echo esc_html($data['guests']); ?></p>
             <?php endif; ?>
             <?php if (!empty($data['referral_source'])) : ?>
-                <p><strong>Where did you hear about us:</strong> <?php echo esc_html($data['referral_source']); ?></p>
+                <p><strong>How did you hear of us:</strong> <?php echo esc_html($data['referral_source']); ?></p>
+            <?php endif; ?>
+            <?php if (!empty($data['event_venue_location'])) : ?>
+                <p><strong>Event venue location:</strong> <?php echo esc_html($data['event_venue_location']); ?></p>
             <?php endif; ?>
 
             <h3 style="color: #555; margin-top: 24px;">Requested Services</h3>
@@ -785,6 +794,7 @@ class teqb_Quote_Builder extends teqb_Base {
         update_post_meta($post_id, '_teqb_quote_guests', $data['guests']);
         update_post_meta($post_id, '_teqb_quote_message', $data['message']);
         update_post_meta($post_id, '_teqb_quote_referral_source', $data['referral_source'] ?? '');
+        update_post_meta($post_id, '_teqb_quote_event_venue_location', $data['event_venue_location'] ?? '');
         update_post_meta($post_id, '_teqb_quote_services', $data['services']);
         update_post_meta($post_id, '_teqb_quote_subtotal', $data['subtotal']);
         update_post_meta($post_id, '_teqb_quote_discount', $data['discount']);

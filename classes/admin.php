@@ -211,7 +211,10 @@ class teqb_Admin {
 					<li><strong><?php esc_html_e('Guests:', 'teqb'); ?></strong> <?php echo esc_html($meta['guests']); ?></li>
 				<?php endif; ?>
 				<?php if (!empty($meta['referral_source'])) : ?>
-					<li><strong><?php esc_html_e('Where did you hear about us:', 'teqb'); ?></strong> <?php echo esc_html($meta['referral_source']); ?></li>
+					<li><strong><?php esc_html_e('How did you hear of us:', 'teqb'); ?></strong> <?php echo esc_html($meta['referral_source']); ?></li>
+				<?php endif; ?>
+				<?php if (!empty($meta['event_venue_location'])) : ?>
+					<li><strong><?php esc_html_e('Event venue location:', 'teqb'); ?></strong> <?php echo esc_html($meta['event_venue_location']); ?></li>
 				<?php endif; ?>
 			</ul>
 
@@ -822,6 +825,7 @@ class teqb_Admin {
 			'event_type'           => get_post_meta($post_id, '_teqb_quote_event_type', true),
 			'guests'               => get_post_meta($post_id, '_teqb_quote_guests', true),
 			'referral_source'      => get_post_meta($post_id, '_teqb_quote_referral_source', true),
+			'event_venue_location' => get_post_meta($post_id, '_teqb_quote_event_venue_location', true),
 			'message'              => get_post_meta($post_id, '_teqb_quote_message', true),
 			'services'             => is_array(get_post_meta($post_id, '_teqb_quote_services', true)) ? get_post_meta($post_id, '_teqb_quote_services', true) : array(),
 			'subtotal'             => floatval(get_post_meta($post_id, '_teqb_quote_subtotal', true)),
@@ -829,7 +833,7 @@ class teqb_Admin {
 			'discount_label'       => get_post_meta($post_id, '_teqb_quote_discount_label', true),
 			'final_total'          => floatval(get_post_meta($post_id, '_teqb_quote_final_total', true)),
 			'admin_email_sent'     => get_post_meta($post_id, '_teqb_admin_email_sent', true),
-			'customer_email_sent'  => get_post_meta($post_id, '_teqb_customer_email_sent', true),
+			'customer_email_sent'   => get_post_meta($post_id, '_teqb_customer_email_sent', true),
 		);
 	}
 

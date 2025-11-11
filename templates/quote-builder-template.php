@@ -536,28 +536,57 @@ if (!defined('ABSPATH')) {
                 <form class="space-y-4">
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label for="name" class="form-label">Your Name *</label>
-                            <input type="text" id="name" x-model="formData.name" required class="form-input">
+                            <label for="name" class="form-label" :class="{ 'form-label-error': isFieldInvalid('name') }">Your Name *</label>
+                            <input type="text" id="name" x-model="formData.name" 
+                                   @input="clearFieldError('name')"
+                                   @blur="validateFormFields()"
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('name') }">
+                            <p x-show="isFieldInvalid('name')" class="form-error-message" x-text="getFieldErrorMessage('name')"></p>
                         </div>
                         <div>
-                            <label for="email" class="form-label">Email Address *</label>
-                            <input type="email" id="email" x-model="formData.email" required class="form-input">
+                            <label for="email" class="form-label" :class="{ 'form-label-error': isFieldInvalid('email') }">Email Address *</label>
+                            <input type="email" id="email" x-model="formData.email" 
+                                   @input="clearFieldError('email')"
+                                   @blur="validateFormFields()"
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('email') }">
+                            <p x-show="isFieldInvalid('email')" class="form-error-message" x-text="getFieldErrorMessage('email')"></p>
                         </div>
                     </div>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label for="phone" class="form-label">Phone Number *</label>
-                            <input type="tel" id="phone" x-model="formData.phone" required class="form-input">
+                            <label for="phone" class="form-label" :class="{ 'form-label-error': isFieldInvalid('phone') }">Phone Number *</label>
+                            <input type="tel" id="phone" x-model="formData.phone" 
+                                   @input="clearFieldError('phone')"
+                                   @blur="validateFormFields()"
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('phone') }">
+                            <p x-show="isFieldInvalid('phone')" class="form-error-message" x-text="getFieldErrorMessage('phone')"></p>
                         </div>
                         <div>
-                            <label for="event-date" class="form-label">Event Date *</label>
-                            <input type="date" id="event-date" x-model="formData.eventDate" required class="form-input">
+                            <label for="event-date" class="form-label" :class="{ 'form-label-error': isFieldInvalid('eventDate') }">Event Date *</label>
+                            <input type="date" id="event-date" x-model="formData.eventDate" 
+                                   @change="clearFieldError('eventDate')"
+                                   @blur="validateFormFields()"
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('eventDate') }">
+                            <p x-show="isFieldInvalid('eventDate')" class="form-error-message" x-text="getFieldErrorMessage('eventDate')"></p>
                         </div>
                     </div>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label for="event-type" class="form-label">Event Type *</label>
-                            <select id="event-type" x-model="formData.eventType" required class="form-input">
+                            <label for="event-type" class="form-label" :class="{ 'form-label-error': isFieldInvalid('eventType') }">Event Type *</label>
+                            <select id="event-type" x-model="formData.eventType" 
+                                    @change="clearFieldError('eventType')"
+                                    @blur="validateFormFields()"
+                                    required 
+                                    class="form-input" 
+                                    :class="{ 'form-input-error': isFieldInvalid('eventType') }">
                                 <option value="">Select Event Type</option>
                                 <option value="Wedding">Wedding</option>
                                 <option value="Corporate Event">Corporate Event</option>
@@ -567,25 +596,52 @@ if (!defined('ABSPATH')) {
                                 <option value="Holiday Party">Holiday Party</option>
                                 <option value="Other">Other</option>
                             </select>
+                            <p x-show="isFieldInvalid('eventType')" class="form-error-message" x-text="getFieldErrorMessage('eventType')"></p>
                         </div>
                         <div>
-                            <label for="guests" class="form-label">Number of Guests *</label>
-                            <input type="number" id="guests" x-model="formData.guests" min="1" required class="form-input">
+                            <label for="guests" class="form-label" :class="{ 'form-label-error': isFieldInvalid('guests') }">Number of Guests *</label>
+                            <input type="number" id="guests" x-model="formData.guests" 
+                                   @input="clearFieldError('guests')"
+                                   @blur="validateFormFields()"
+                                   min="1" 
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('guests') }">
+                            <p x-show="isFieldInvalid('guests')" class="form-error-message" x-text="getFieldErrorMessage('guests')"></p>
                         </div>
                     </div>
                     <div>
                         <label for="message" class="form-label">Additional Message (Optional)</label>
                         <textarea id="message" x-model="formData.message" rows="4" class="form-input"></textarea>
                     </div>
-                    <div>
-                        <label for="referral-source" class="form-label">Where did you hear about us?</label>
-                        <select id="referral-source" x-model="formData.referralSource" class="form-input">
-                            <option value="">Select an option</option>
-                            <option value="Google search">Google search</option>
-                            <option value="Social media">Social media</option>
-                            <option value="Friend or family">Friend or family</option>
-                            <option value="Other">Other</option>
-                        </select>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label for="referral-source" class="form-label" :class="{ 'form-label-error': isFieldInvalid('referralSource') }">How did you hear of us? *</label>
+                            <select id="referral-source" x-model="formData.referralSource" 
+                                    @change="clearFieldError('referralSource')"
+                                    @blur="validateFormFields()"
+                                    required 
+                                    class="form-input" 
+                                    :class="{ 'form-input-error': isFieldInvalid('referralSource') }">
+                                <option value="">Select an option</option>
+                                <option value="Google search">Google search</option>
+                                <option value="Social media">Social media</option>
+                                <option value="Friend or family">Friend or family</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <p x-show="isFieldInvalid('referralSource')" class="form-error-message" x-text="getFieldErrorMessage('referralSource')"></p>
+                        </div>
+                        <div>
+                            <label for="event-venue-location" class="form-label" :class="{ 'form-label-error': isFieldInvalid('eventVenueLocation') }">Event venue location *</label>
+                            <input type="text" id="event-venue-location" x-model="formData.eventVenueLocation" 
+                                   @input="clearFieldError('eventVenueLocation')"
+                                   @blur="validateFormFields()"
+                                   required 
+                                   class="form-input" 
+                                   :class="{ 'form-input-error': isFieldInvalid('eventVenueLocation') }"
+                                   placeholder="Enter venue name or address">
+                            <p x-show="isFieldInvalid('eventVenueLocation')" class="form-error-message" x-text="getFieldErrorMessage('eventVenueLocation')"></p>
+                        </div>
                     </div>
                 </form>
 
@@ -605,6 +661,10 @@ if (!defined('ABSPATH')) {
                     </button>
                 </div>
 
+                <div x-show="stepError" class="mt-4 p-4 rounded-md bg-red-50 text-red-800 border border-red-200">
+                    <p class="font-semibold mb-1">Please complete the required fields:</p>
+                    <p x-text="stepError"></p>
+                </div>
                 <div x-show="submitMessage" class="mt-4 p-4 rounded-md"
                      :class="submitSuccess ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
                     <p x-text="submitMessage"></p>
