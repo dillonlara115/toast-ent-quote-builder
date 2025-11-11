@@ -2129,6 +2129,21 @@
             },
 
             describeAddOn(addOn) {
+                // Check if tiered pricing is selected
+                if (addOn.tiered && addOn.options) {
+                    const selection = this.serviceSelections[this.currentServiceId];
+                    const stored = selection && selection.addOns[addOn.id];
+                    const selectedOption = stored && stored.selectedOption;
+                    
+                    if (selectedOption && addOn.tiered[selectedOption] !== undefined) {
+                        return `${this.formatCurrency(addOn.tiered[selectedOption])} flat`;
+                    }
+                    // If no option selected yet, show price range or base price
+                    if (addOn.price) {
+                        return `${this.formatCurrency(addOn.price)} flat (select tier for pricing)`;
+                    }
+                }
+                
                 if (addOn.base && addOn.unit) {
                     const minText = addOn.min ? ` (min ${addOn.min})` : '';
                     return `${this.formatCurrency(addOn.base)} per ${addOn.unit}${minText}`;
@@ -2255,11 +2270,14 @@
                     return;
                 }
                 const selection = this.serviceSelections[serviceId];
-                selection.addOns[addOn.id] = selection.addOns[addOn.id] || {
-                    quantity: addOn.base ? (addOn.min || 1) : 1,
-                    extras: {},
-                    selectedOption: ''
-                };
+                // Ensure add-on is selected when an option is chosen
+                if (!selection.addOns[addOn.id]) {
+                    selection.addOns[addOn.id] = {
+                        quantity: addOn.base ? (addOn.min || 1) : 1,
+                        extras: {},
+                        selectedOption: ''
+                    };
+                }
                 selection.addOns[addOn.id].selectedOption = value;
                 this.recalculateTotals();
             },

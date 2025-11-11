@@ -451,7 +451,7 @@ if (!defined('ABSPATH')) {
                         </div>
                     </template>
 
-                    <template x-if="addOn.options">
+                    <template x-if="addOn.options && addOn.options.length > 0">
                         <div class="mt-4 border-t pt-4">
                             <label class="text-sm font-semibold  mb-2 block">
                                 Choose an option
@@ -462,7 +462,7 @@ if (!defined('ABSPATH')) {
                                     :value="getAddOnOption(addOn.id)">
                                 <option value="">Select an option</option>
                                 <template x-for="option in addOn.options" :key="option">
-                                    <option :value="option" x-text="option"></option>
+                                    <option :value="option" x-text="addOn.tiered && addOn.tiered[option] !== undefined ? option + ' - ' + formatCurrency(addOn.tiered[option]) : option"></option>
                                 </template>
                             </select>
                         </div>

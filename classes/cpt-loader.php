@@ -183,6 +183,20 @@ class teqb_CPT_Loader {
 				}
 			}
 			
+			$tiered_json = get_post_meta($addon_post->ID, '_teqb_tiered', true);
+			$tiered = array();
+			if ($tiered_json) {
+				$decoded = json_decode($tiered_json, true);
+				if (is_array($decoded)) {
+					$tiered = $decoded;
+					// If tiered pricing exists, always extract options from tiered keys (ignore options field)
+					// This ensures options match the tiered pricing keys exactly
+					$tiered_keys = array_keys($tiered);
+					// Ensure all keys are strings (not objects)
+					$options = array_map('strval', $tiered_keys);
+				}
+			}
+			
 			$addon = array(
 				'post_id' => $addon_post->ID,
 				'id' => $addon_id_meta,
@@ -191,9 +205,22 @@ class teqb_CPT_Loader {
 				'base' => floatval(get_post_meta($addon_post->ID, '_teqb_base', true)) ?: null,
 				'unit' => get_post_meta($addon_post->ID, '_teqb_unit', true),
 				'min' => intval(get_post_meta($addon_post->ID, '_teqb_min', true)) ?: null,
-				'options' => $options,
-				'extras' => $extras,
 			);
+			
+			// Only include options if they exist and are not empty
+			if (!empty($options) && is_array($options)) {
+				$addon['options'] = $options;
+			}
+			
+			// Only include extras if they exist
+			if (!empty($extras)) {
+				$addon['extras'] = $extras;
+			}
+			
+			// Only include tiered pricing if it exists
+			if (!empty($tiered)) {
+				$addon['tiered'] = $tiered;
+			}
 			
 			$addons[] = $addon;
 		}

@@ -2251,6 +2251,28 @@ class teqb_Admin {
 				</td>
 			</tr>
 			<tr>
+				<th><label for="teqb_tiered"><?php esc_html_e('Tiered Pricing (JSON)', 'teqb'); ?></label></th>
+				<td>
+					<?php 
+					$tiered = get_post_meta($post->ID, '_teqb_tiered', true);
+					$tiered_display = '';
+					if ($tiered) {
+						$tiered_decoded = json_decode($tiered, true);
+						if (is_array($tiered_decoded)) {
+							$tiered_display = wp_json_encode($tiered_decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+						} else {
+							$tiered_display = $tiered;
+						}
+					}
+					?>
+					<textarea id="teqb_tiered" name="teqb_tiered" rows="5" class="large-text"><?php echo esc_textarea($tiered_display); ?></textarea>
+					<p class="description">
+						<?php esc_html_e('JSON format mapping option names to prices: {"Tier 3": 200, "Tier 2": 300, "Tier 1": 400}', 'teqb'); ?><br>
+						<?php esc_html_e('Leave blank if not using tiered pricing. Options must match the option names above.', 'teqb'); ?>
+					</p>
+				</td>
+			</tr>
+			<tr>
 				<th><label for="teqb_extras"><?php esc_html_e('Extras (JSON)', 'teqb'); ?></label></th>
 				<td>
 					<textarea id="teqb_extras" name="teqb_extras" rows="5" class="large-text"><?php echo esc_textarea($extras); ?></textarea>
@@ -2285,6 +2307,7 @@ class teqb_Admin {
 			'teqb_unit' => 'sanitize_text_field',
 			'teqb_min' => 'absint',
 			'teqb_options' => 'sanitize_textarea_field',
+			'teqb_tiered' => 'sanitize_textarea_field',
 			'teqb_extras' => 'sanitize_textarea_field',
 		);
 		
@@ -2297,7 +2320,28 @@ class teqb_Admin {
 			} else {
 				$value = call_user_func($sanitize, $value);
 			}
-			update_post_meta($post_id, '_' . $field, $value);
+			
+			// Special handling for JSON fields (tiered and extras)
+			if ($field === 'teqb_tiered' || $field === 'teqb_extras') {
+				// Validate JSON before saving
+				if (!empty($value)) {
+					$decoded = json_decode($value, true);
+					if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+						// Save as valid JSON
+						update_post_meta($post_id, '_' . $field, wp_json_encode($decoded, JSON_UNESCAPED_UNICODE));
+					} else {
+						// Invalid JSON - save as-is but log error
+						update_post_meta($post_id, '_' . $field, $value);
+						if (defined('WP_DEBUG') && WP_DEBUG) {
+							error_log('TEQB: Invalid JSON for ' . $field . ' on post ' . $post_id . ': ' . json_last_error_msg());
+						}
+					}
+				} else {
+					delete_post_meta($post_id, '_' . $field);
+				}
+			} else {
+				update_post_meta($post_id, '_' . $field, $value);
+			}
 		}
 	}
 	

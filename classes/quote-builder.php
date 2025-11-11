@@ -1221,6 +1221,10 @@ class teqb_Quote_Builder extends teqb_Base {
                         $addon_data['options'] = $addon['options'];
                     }
                     
+                    if (!empty($addon['tiered']) && is_array($addon['tiered'])) {
+                        $addon_data['tiered'] = $addon['tiered'];
+                    }
+                    
                     if (!empty($addon['extras']) && is_array($addon['extras'])) {
                         $addon_data['extras'] = $addon['extras'];
                     }
@@ -1420,8 +1424,18 @@ class teqb_Quote_Builder extends teqb_Base {
                 
                 // Apply price override if set (check for non-null value, not just key existence)
                 if (isset($addon_overrides[$addon['post_id']]) && $addon_overrides[$addon['post_id']] !== null) {
-                    // If override is set, use it as flat price
-                    $addon_data['price'] = $addon_overrides[$addon['post_id']];
+                    // Check if this is a unit-based addon (has base and unit)
+                    if (!empty($addon['base']) && !empty($addon['unit'])) {
+                        // Override the base price, preserve unit-based pricing structure
+                        $addon_data['base'] = floatval($addon_overrides[$addon['post_id']]);
+                        $addon_data['unit'] = $addon['unit'];
+                        if (!empty($addon['min'])) {
+                            $addon_data['min'] = intval($addon['min']);
+                        }
+                    } else {
+                        // Flat price addon - override the price
+                        $addon_data['price'] = floatval($addon_overrides[$addon['post_id']]);
+                    }
                 } else {
                     // Use original pricing structure
                     if (!empty($addon['price'])) {
@@ -1430,22 +1444,24 @@ class teqb_Quote_Builder extends teqb_Base {
                     if (!empty($addon['base'])) {
                         $addon_data['base'] = floatval($addon['base']);
                     }
+                    if (!empty($addon['unit'])) {
+                        $addon_data['unit'] = $addon['unit'];
+                    }
+                    if (!empty($addon['min'])) {
+                        $addon_data['min'] = intval($addon['min']);
+                    }
                 }
                 
-                if (!empty($addon['unit'])) {
-                    $addon_data['unit'] = $addon['unit'];
-                }
-                
-                if (!empty($addon['min'])) {
-                    $addon_data['min'] = intval($addon['min']);
-                }
-                
-                $options = $this->text_to_array(get_post_meta($addon['post_id'], '_teqb_options', true));
-                if (!empty($options)) {
-                    $addon_data['options'] = $options;
-                }
-                
-                $extras_json = get_post_meta($addon['post_id'], '_teqb_extras', true);
+				// Options and tiered pricing are already loaded from CPT loader
+				if (!empty($addon['options']) && is_array($addon['options'])) {
+					$addon_data['options'] = $addon['options'];
+				}
+				
+				if (!empty($addon['tiered']) && is_array($addon['tiered'])) {
+					$addon_data['tiered'] = $addon['tiered'];
+				}
+				
+				$extras_json = get_post_meta($addon['post_id'], '_teqb_extras', true);
                 if ($extras_json) {
                     $extras = json_decode($extras_json, true);
                     if (is_array($extras) && !empty($extras)) {
