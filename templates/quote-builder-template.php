@@ -228,10 +228,8 @@ if (!defined('ABSPATH')) {
                     <ul class="package-features">
                         <template x-for="item in packageOption.includes" :key="item">
                             <li>
-                                <svg class="h-4 w-4  mr-2" fill="none" stroke="currentColor"
-                                     viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M5 13l4 4L19 7"></path>
+                                <svg class="h-4 w-4  mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                 </svg>
                                 <span x-text="item"></span>
                             </li>
@@ -292,7 +290,12 @@ if (!defined('ABSPATH')) {
                     <p class="bundled-details-price" x-text="formatCurrency(upgradeIncludedPackage.price)"></p>
                     <ul class="bundled-details-list" x-show="upgradeIncludedPackage.includes && upgradeIncludedPackage.includes.length">
                         <template x-for="item in upgradeIncludedPackage.includes" :key="item">
-                            <li x-text="item"></li>
+                            <li>
+                                <svg class="h-4 w-4  mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span x-text="item"></span>
+                            </li>
                         </template>
                     </ul>
                     <p class="bundled-details-note">Already included at no additional cost.</p>
@@ -624,9 +627,16 @@ if (!defined('ABSPATH')) {
                                     class="form-input" 
                                     :class="{ 'form-input-error': isFieldInvalid('referralSource') }">
                                 <option value="">Select an option</option>
-                                <option value="Google search">Google search</option>
-                                <option value="Social media">Social media</option>
-                                <option value="Friend or family">Friend or family</option>
+                                <option value="Google Search">Google Search</option>
+                                <option value="Facebook">Facebook</option>
+                                <option value="Instagram">Instagram</option>
+                                <option value="The Knot">The Knot</option>
+                                <option value="WeddingWire">WeddingWire</option>
+                                <option value="ChatGPT">ChatGPT</option>
+                                <option value="Yelp">Yelp</option>
+                                <option value="Venue Referral">Venue Referral</option>
+                                <option value="Expo">Expo</option>
+                                <option value="Friend or Family">Friend or Family</option>
                                 <option value="Other">Other</option>
                             </select>
                             <p x-show="isFieldInvalid('referralSource')" class="form-error-message" x-text="getFieldErrorMessage('referralSource')"></p>
@@ -857,7 +867,12 @@ if (!defined('ABSPATH')) {
                             <p class="bundled-details-price" x-text="formatCurrency(activeBundledIncludedPackage.price)"></p>
                             <ul class="bundled-details-list" x-show="activeBundledIncludedPackage.includes && activeBundledIncludedPackage.includes.length">
                                 <template x-for="item in activeBundledIncludedPackage.includes" :key="item">
-                                    <li x-text="item"></li>
+                                    <li>
+                                        <svg class="h-4 w-4  mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        <span x-text="item"></span>
+                                    </li>
                                 </template>
                             </ul>
                             <p class="bundled-details-note">Already included at no additional cost.</p>

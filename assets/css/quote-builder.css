@@ -1195,9 +1195,23 @@
 }
 
 .bundled-details-list {
-    margin: 0 0 10px 18px;
+    list-style: none;
     padding: 0;
+    margin: 0 0 10px 0;
     color: #374151;
+}
+
+.bundled-details-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: #4b5563;
+    margin-bottom: 6px;
+}
+
+.bundled-details-list li svg {
+    flex-shrink: 0;
 }
 
 .bundled-details-note {
@@ -1312,11 +1326,16 @@
 
 .package-features li {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     font-size: 0.95rem;
     color: #4b5563;
     margin-bottom: 6px;
+}
+
+.package-features li svg {
+    flex-shrink: 0;
+    min-width: 20px;
 }
 
 .bonus-chip {
