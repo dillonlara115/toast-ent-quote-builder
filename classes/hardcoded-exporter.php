@@ -382,6 +382,20 @@ class teqb_Hardcoded_Data_Exporter {
 					'Upgraded Backdrops ($495 value)',
 					'Mirror Me or 360 Photo Booth Upgrade'
 				)
+			),
+			'combo_perks' => array(
+				'label' => 'Combo Perk',
+				'pluralLabel' => 'Combo Perks',
+				'optionsLabel' => 'Enhancement Options:',
+				'options' => array(
+					'Ceremony Sound (DJ Required) - $300',
+					'Cold Sparks (2) - $795',
+					'Dancing on a Cloud - $795',
+					'Audio Guestbook - $295',
+					'Glow Sticks - $295',
+					'Photo Booth Hours Match DJ Hours for Free',
+					'TV Booth (DJ Required) (Slideshows/Monogram) - $395'
+				)
 			)
 		);
 	}

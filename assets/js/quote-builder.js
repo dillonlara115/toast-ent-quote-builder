@@ -634,9 +634,56 @@
             bundleDiscounts = window.quoteBuilderData.bundleDiscounts || [];
             rewardCatalog = window.quoteBuilderData.rewardCatalog || {};
             
+            // Normalize reward catalog options (handle string arrays from backend)
+            Object.keys(rewardCatalog).forEach(key => {
+                const reward = rewardCatalog[key];
+                if (reward) {
+                    // Ensure options always exists and is an array
+                    if (!reward.options) {
+                        reward.options = [];
+                    } else if (typeof reward.options === 'string') {
+                        // Convert string to array if needed
+                        reward.options = reward.options.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                    } else if (!Array.isArray(reward.options)) {
+                        reward.options = [];
+                    }
+                }
+            });
+            
+            // Ensure combo_perks exists with default options if bundle rules reference it
+            const hasComboPerksRule = bundleDiscounts.some(rule => 
+                Array.isArray(rule.freebies) && rule.freebies.some(f => f && f.type === 'combo_perks')
+            );
+            
+            if (hasComboPerksRule) {
+                // Ensure combo_perks exists in reward catalog
+                if (!rewardCatalog.combo_perks) {
+                    rewardCatalog.combo_perks = {
+                        label: 'Combo Perk',
+                        pluralLabel: 'Combo Perks',
+                        optionsHeading: 'Enhancement Options:',
+                        options: []
+                    };
+                }
+                // Ensure combo_perks has default options if missing or empty
+                if (!rewardCatalog.combo_perks.options || rewardCatalog.combo_perks.options.length === 0) {
+                    rewardCatalog.combo_perks.options = [
+                        'Ceremony Sound (DJ Required) - $300',
+                        'Cold Sparks (2) - $795',
+                        'Dancing on a Cloud - $795',
+                        'Audio Guestbook - $295',
+                        'Glow Sticks - $295',
+                        'Photo Booth Hours Match DJ Hours for Free',
+                        'TV Booth (DJ Required) (Slideshows/Monogram) - $395'
+                    ];
+                }
+            }
+            
             if (typeof console !== 'undefined' && console.log) {
                 console.log('Quote Builder: Using localized builder data', window.quoteBuilderData.builder_id);
                 console.log('Quote Builder: Services in localized data:', Object.keys(quoteData));
+                console.log('Quote Builder: Reward catalog:', rewardCatalog);
+                console.log('Quote Builder: combo_perks options:', rewardCatalog.combo_perks ? rewardCatalog.combo_perks.options : 'not found');
                 console.log('Quote Builder: Full quoteBuilderData:', window.quoteBuilderData);
             }
             return true;
@@ -660,6 +707,20 @@
                         pluralLabel: 'Luxury Enhancements',
                         optionsHeading: 'Luxury Enhancement Options:',
                         options: luxuryEnhancements
+                    },
+                    combo_perks: {
+                        label: 'Combo Perk',
+                        pluralLabel: 'Combo Perks',
+                        optionsHeading: 'Enhancement Options:',
+                        options: [
+                            'Ceremony Sound (DJ Required) - $300',
+                            'Cold Sparks (2) - $795',
+                            'Dancing on a Cloud - $795',
+                            'Audio Guestbook - $295',
+                            'Glow Sticks - $295',
+                            'Photo Booth Hours Match DJ Hours for Free',
+                            'TV Booth (DJ Required) (Slideshows/Monogram) - $395'
+                        ]
                     }
                 };
             }
@@ -2602,7 +2663,7 @@
                 const totalServiceCount = selectedCount + bundledServiceCount;
                 const totalServices = Object.keys(quoteData).length;
 
-                let best = { amount: 0, label: '', rewards: [] };
+                let best = { amount: 0, label: '', rewards: [], minServices: 0 };
 
                 bundleDiscounts.forEach((rule) => {
                     const meetsRequirement = rule.requiresAll
@@ -2614,7 +2675,8 @@
                     }
 
                     const amount = rule.discount || 0;
-                    if (amount <= best.amount) {
+                    // Prefer higher discount amount, or if equal, prefer higher minServices (better tier)
+                    if (amount < best.amount || (amount === best.amount && rule.minServices <= best.minServices)) {
                         return;
                     }
 
@@ -2630,8 +2692,32 @@
                     }, {});
 
                     const rewards = freebies.map((freebie) => {
-                        const catalogItem = rewardCatalog[freebie.type] || null;
+                        let catalogItem = rewardCatalog[freebie.type] || null;
                         const quantity = freebie.quantity || 0;
+
+                        // If combo_perks is missing or has no options, ensure defaults are set
+                        if (freebie.type === 'combo_perks') {
+                            if (!catalogItem) {
+                                catalogItem = {
+                                    label: 'Combo Perk',
+                                    pluralLabel: 'Combo Perks',
+                                    optionsHeading: 'Enhancement Options:',
+                                    options: []
+                                };
+                            }
+                            // Ensure options array exists and has content
+                            if (!catalogItem.options || !Array.isArray(catalogItem.options) || catalogItem.options.length === 0) {
+                                catalogItem.options = [
+                                    'Ceremony Sound (DJ Required) - $300',
+                                    'Cold Sparks (2) - $795',
+                                    'Dancing on a Cloud - $795',
+                                    'Audio Guestbook - $295',
+                                    'Glow Sticks - $295',
+                                    'Photo Booth Hours Match DJ Hours for Free',
+                                    'TV Booth (DJ Required) (Slideshows/Monogram) - $395'
+                                ];
+                            }
+                        }
 
                         if (!catalogItem) {
                             return {
@@ -2666,6 +2752,45 @@
                                 : "Congratulations! You've earned";
                             headline = `${prefix} ${quantityWord} ${baseLabel}!`;
                             subline = 'Upon signing, select from the Luxury Enhancement list below.';
+                        } else if (freebie.type === 'combo_perks') {
+                            // For combo_perks, quantity determines the message
+                            if (quantity >= 6) {
+                                // All enhancements (4+ services)
+                                headline = '🎁 Receive ALL Enhancements - $3,000+ Value!';
+                                subline = '✨ Includes:';
+                                // Don't show quantityText for "all" case since subline already says "Includes:"
+                                heading = '';
+                            } else if (quantity === 2) {
+                                // 3 services
+                                headline = '🎁 Pick 2 Free Enhancements';
+                                subline = '';
+                            } else {
+                                // 2 services (quantity === 1)
+                                headline = '🎁 Pick 1 Free Enhancement';
+                                subline = '';
+                            }
+                        }
+
+                        // Ensure options is always an array
+                        let options = [];
+                        if (catalogItem && catalogItem.options) {
+                            if (Array.isArray(catalogItem.options)) {
+                                options = catalogItem.options.slice();
+                            } else if (typeof catalogItem.options === 'string' && catalogItem.options.length > 0) {
+                                // Handle string options (newline-separated)
+                                options = catalogItem.options.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                            }
+                        }
+                        
+                        // Debug logging for combo_perks
+                        if (freebie.type === 'combo_perks' && typeof console !== 'undefined' && console.log) {
+                            console.log('Combo Perks Debug:', {
+                                freebieType: freebie.type,
+                                catalogItem: catalogItem,
+                                catalogItemOptions: catalogItem ? catalogItem.options : 'no catalogItem',
+                                finalOptions: options,
+                                optionsLength: options.length
+                            });
                         }
 
                         return {
@@ -2673,9 +2798,7 @@
                             quantity,
                             label: baseLabel,
                             quantityText: heading,
-                            options: Array.isArray(catalogItem.options)
-                                ? catalogItem.options.slice()
-                                : [],
+                            options: options || [], // Ensure it's always an array
                             headline,
                             subline
                         };
@@ -2684,7 +2807,8 @@
                     best = {
                         amount,
                         label: rule.description || '',
-                        rewards
+                        rewards,
+                        minServices: rule.minServices || 0
                     };
                 });
 

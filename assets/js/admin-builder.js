@@ -81,6 +81,12 @@
 					pluralLabel: __('Luxury Enhancements', 'teqb'),
 					optionsLabel: __('Luxury Enhancement Options:', 'teqb'),
 					options: []
+				},
+				combo_perks: {
+					label: __('Combo Perk', 'teqb'),
+					pluralLabel: __('Combo Perks', 'teqb'),
+					optionsLabel: __('Enhancement Options:', 'teqb'),
+					options: []
 				}
 			}
 		},
@@ -168,7 +174,8 @@
 
 	const RewardTypeOptions = [
 		{ value: 'signature_touch', label: __('Signature Touch', 'teqb') },
-		{ value: 'luxury_enhancement', label: __('Luxury Enhancement', 'teqb') }
+		{ value: 'luxury_enhancement', label: __('Luxury Enhancement', 'teqb') },
+		{ value: 'combo_perks', label: __('Combo Perks', 'teqb') }
 	];
 
 	const Section = ({ title, description, children }) =>

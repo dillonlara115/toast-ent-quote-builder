@@ -823,9 +823,9 @@ if (!defined('ABSPATH')) {
                                 <p class="bundle-rewards-subline" x-show="reward.subline" x-text="reward.subline"></p>
                             </div>
                             <p class="bundle-reward-heading" x-show="reward.quantityText" x-text="reward.quantityText"></p>
-                            <template x-if="reward.options.length">
+                            <template x-if="reward.options && Array.isArray(reward.options) && reward.options.length > 0">
                                 <ul class="bundle-reward-list">
-                                    <template x-for="option in reward.options" :key="option">
+                                    <template x-for="(option, optIndex) in reward.options" :key="`${reward.type}-${optIndex}-${option}`">
                                         <li x-text="option"></li>
                                     </template>
                                 </ul>

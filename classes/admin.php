@@ -778,6 +778,12 @@ class teqb_Admin {
 						'optionsLabel' => __('Luxury Enhancement Options', 'teqb'),
 						'options'      => array(),
 					),
+					'combo_perks' => array(
+						'label'        => __('Combo Perk', 'teqb'),
+						'pluralLabel'  => __('Combo Perks', 'teqb'),
+						'optionsLabel' => __('Enhancement Options', 'teqb'),
+						'options'      => array(),
+					),
 				),
 			),
 			'form' => array(
