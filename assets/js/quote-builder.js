@@ -1,10 +1,11 @@
 /**
  * Toast Entertainment Quote Builder
  * Alpine.js component for multi-service quoting with combo discounts.
+ * Version: 2025-01-15 - Added form config support
  */
 
 (function () {
-    console.log('Quote Builder loaded');
+    console.log('Quote Builder loaded - v2025-01-15');
     // Location-based quote data
     const quoteDataByLocation = {
         // Default/Austin data (existing)
@@ -625,6 +626,13 @@
     let quoteData = quoteDataByLocation[location] || quoteDataByLocation.austin;
     let bundleDiscounts = [];
     let rewardCatalog = {};
+    let formConfig = {
+        require_phone: false,
+        require_event_date: false,
+        success_message: '',
+        confirmation_copy: ''
+    };
+    let skipPackages = false;
     
     // Function to load builder data (called at init time, not load time)
     const loadBuilderData = () => {
@@ -633,6 +641,30 @@
             quoteData = window.quoteBuilderData.quoteData;
             bundleDiscounts = window.quoteBuilderData.bundleDiscounts || [];
             rewardCatalog = window.quoteBuilderData.rewardCatalog || {};
+            skipPackages = !!window.quoteBuilderData.skipPackages;
+            
+            // Debug: Check if form config exists
+            if (typeof console !== 'undefined' && console.log) {
+                console.log('Quote Builder: Checking for form config...');
+                console.log('Quote Builder: window.quoteBuilderData.form exists?', 'form' in window.quoteBuilderData);
+                console.log('Quote Builder: window.quoteBuilderData.form value:', window.quoteBuilderData.form);
+                console.log('Quote Builder: All keys in quoteBuilderData:', Object.keys(window.quoteBuilderData));
+            }
+            
+            // Use form config from backend if available, otherwise use default
+            if (window.quoteBuilderData.form && typeof window.quoteBuilderData.form === 'object') {
+                formConfig = {
+                    require_phone: !!window.quoteBuilderData.form.require_phone,
+                    require_event_date: !!window.quoteBuilderData.form.require_event_date,
+                    success_message: window.quoteBuilderData.form.success_message || '',
+                    confirmation_copy: window.quoteBuilderData.form.confirmation_copy || ''
+                };
+            } else {
+                // Keep default formConfig (require_phone: false)
+                if (typeof console !== 'undefined' && console.log) {
+                    console.warn('Quote Builder: No form config found in quoteBuilderData, using defaults');
+                }
+            }
             
             // Normalize reward catalog options (handle string arrays from backend)
             Object.keys(rewardCatalog).forEach(key => {
@@ -684,6 +716,8 @@
                 console.log('Quote Builder: Services in localized data:', Object.keys(quoteData));
                 console.log('Quote Builder: Reward catalog:', rewardCatalog);
                 console.log('Quote Builder: combo_perks options:', rewardCatalog.combo_perks ? rewardCatalog.combo_perks.options : 'not found');
+                console.log('Quote Builder: Form config:', formConfig);
+                console.log('Quote Builder: require_phone setting:', formConfig.require_phone);
                 console.log('Quote Builder: Full quoteBuilderData:', window.quoteBuilderData);
             }
             return true;
@@ -1103,16 +1137,28 @@
             const startingPrice = priceCandidates.length ? Math.min(...priceCandidates) : 0;
             const description = serviceContent[serviceId] || {};
 
+            // Prioritize backend data over hardcoded data
+            // Use service.features from backend if available, otherwise fall back to hardcoded description.features
+            const backendFeatures = Array.isArray(service.features) && service.features.length > 0 
+                ? service.features 
+                : (Array.isArray(description.features) ? description.features : []);
+            
+            // Use backend subtitle/paragraphs if available, otherwise fall back to hardcoded
+            const backendSubtitle = service.subtitle || description.subtitle || '';
+            const backendParagraphs = Array.isArray(service.paragraphs) && service.paragraphs.length > 0
+                ? service.paragraphs
+                : (Array.isArray(description.paragraphs) ? description.paragraphs : []);
+
             return {
                 id: serviceId,
                 label: service.label,
                 startingPrice,
                 title: description.title || service.label,
-                subtitle: description.subtitle || '',
-                paragraphs: Array.isArray(description.paragraphs) ? description.paragraphs : [],
+                subtitle: backendSubtitle,
+                paragraphs: backendParagraphs,
                 quote: description.quote || null,
                 featuresTitle: description.featuresTitle || '',
-                features: Array.isArray(description.features) ? description.features : []
+                features: backendFeatures
             };
         });
 
@@ -1151,16 +1197,39 @@
             submitMessage: '',
             submitSuccess: false,
             formData: defaultFormData(),
+            skipPackages: skipPackages,
             availableServices: [],
             showPricingNotes: false,
             invalidFields: {},
             formValidationAttempted: false,
+            formConfig: {
+                require_phone: false,
+                require_event_date: false,
+                success_message: '',
+                confirmation_copy: ''
+            },
 
             init() {
                 // Load builder data at init time (after DOM is ready and script tags are parsed)
                 loadBuilderData();
+                // Copy formConfig to component property for reactivity
+                // formConfig is updated by loadBuilderData(), so copy it after that runs
+                this.formConfig = {
+                    require_phone: formConfig.require_phone || false,
+                    require_event_date: formConfig.require_event_date || false,
+                    success_message: formConfig.success_message || '',
+                    confirmation_copy: formConfig.confirmation_copy || ''
+                };
+                if (typeof console !== 'undefined' && console.log) {
+                    console.log('Quote Builder Component: formConfig loaded:', this.formConfig);
+                    console.log('Quote Builder Component: requirePhone getter will return:', this.formConfig.require_phone);
+                }
                 this.availableServices = buildAvailableServices();
                 this.setEventDateMin();
+            },
+
+            get requirePhone() {
+                return this.formConfig.require_phone;
             },
 
             get currentServiceId() {
@@ -1393,7 +1462,7 @@
                 return (
                     this.formData.name.trim() !== '' &&
                     this.validateEmail(this.formData.email) &&
-                    this.formData.phone.trim() !== '' &&
+                    (!this.formConfig.require_phone || this.formData.phone.trim() !== '') &&
                     this.formData.eventDate !== '' &&
                     this.formData.eventType.trim() !== '' &&
                     this.formData.guests !== '' &&
@@ -1415,7 +1484,7 @@
                     errors.email = 'Please enter a valid email address';
                 }
                 
-                if (this.formData.phone.trim() === '') {
+                if (this.formConfig.require_phone && this.formData.phone.trim() === '') {
                     errors.phone = 'Phone Number is required';
                 }
                 
@@ -1948,7 +2017,8 @@
                     return;
                 }
                 this.currentServiceIndex = 0;
-                this.currentStep = 2;
+                // Skip step 2 (packages) if skipPackages is true, go directly to add-ons (step 4)
+                this.currentStep = this.skipPackages ? 4 : 2;
                 this.stepError = '';
                 this.editingService = false;
                 this.scrollToBuilderTop();
@@ -2097,7 +2167,7 @@
                     return false;
                 }
                 const selectedPackage = this.getSelectedPackageForService(targetServiceId);
-                if (!selectedPackage || !selectedPackage.includes) {
+                if (!selectedPackage || !selectedPackage.includes || !Array.isArray(selectedPackage.includes)) {
                     return false;
                 }
                 
@@ -2145,7 +2215,7 @@
                     return 0;
                 }
                 const selectedPackage = this.getSelectedPackageForService(targetServiceId);
-                if (!selectedPackage || !selectedPackage.includes) {
+                if (!selectedPackage || !selectedPackage.includes || !Array.isArray(selectedPackage.includes)) {
                     return 0;
                 }
                 
@@ -2170,13 +2240,16 @@
             },
 
             goToAddOns() {
-                const selection = this.serviceSelections[this.currentServiceId];
-                if (!selection || !selection.selectedPackage) {
-                    this.stepError = 'Please select a package to continue.';
-                    return;
-                }
-                if (this.maybeStartUpgradeFlow()) {
-                    return;
+                // If skipPackages is true, don't require package selection
+                if (!this.skipPackages) {
+                    const selection = this.serviceSelections[this.currentServiceId];
+                    if (!selection || !selection.selectedPackage) {
+                        this.stepError = 'Please select a package to continue.';
+                        return;
+                    }
+                    if (this.maybeStartUpgradeFlow()) {
+                        return;
+                    }
                 }
                 this.currentStep = 4;
                 this.stepError = '';
@@ -2535,7 +2608,8 @@
                     ? serviceDef.packages.find((pkg) => pkg.id === selection.selectedPackage)
                     : null;
 
-                if (!packageDef) {
+                // When skipPackages is true, allow snapshot without package
+                if (!packageDef && !this.skipPackages) {
                     return {
                         serviceId,
                         serviceLabel: serviceDef.label,
@@ -2554,16 +2628,19 @@
                 const subtotal = this.calculateServiceSubtotal(serviceId);
                 const bonusSavings = this.calculateBonusSavings(serviceId);
 
+                // When skipPackages is true, package can be null
+                const packageData = packageDef ? {
+                    id: packageDef.id,
+                    name: packageDef.name,
+                    price: packageDef.price,
+                    includes: Array.isArray(packageDef.includes) ? packageDef.includes.slice() : [],
+                    bonuses: selection.selectedBonuses.slice()
+                } : null;
+
                 return {
                     serviceId,
                     serviceLabel: serviceDef.label,
-                    package: {
-                        id: packageDef.id,
-                        name: packageDef.name,
-                        price: packageDef.price,
-                        includes: Array.isArray(packageDef.includes) ? packageDef.includes.slice() : [],
-                        bonuses: selection.selectedBonuses.slice()
-                    },
+                    package: packageData,
                     addOns,
                     bonusSelections,
                     bonusSavings,
@@ -2578,10 +2655,13 @@
                 if (!serviceId) {
                     return;
                 }
-                const selection = this.serviceSelections[serviceId];
-                if (!selection.selectedPackage) {
-                    this.stepError = 'Please choose a package to continue.';
-                    return;
+                // If skipPackages is true, don't require package selection
+                if (!this.skipPackages) {
+                    const selection = this.serviceSelections[serviceId];
+                    if (!selection.selectedPackage) {
+                        this.stepError = 'Please choose a package to continue.';
+                        return;
+                    }
                 }
 
                 const snapshot = this.getServiceSnapshot(serviceId);
@@ -2603,7 +2683,8 @@
 
                 if (this.currentServiceIndex < this.selectedServices.length - 1) {
                     this.currentServiceIndex++;
-                    this.currentStep = 2;
+                    // Skip step 2 (packages) if skipPackages is true, go directly to add-ons (step 4)
+                    this.currentStep = this.skipPackages ? 4 : 2;
                     this.stepError = '';
                     this.scrollToBuilderTop();
                     return;
@@ -2628,12 +2709,17 @@
                     .filter((snapshot) => snapshot !== null);
 
                 this.subtotal = this.orderedServiceSummaries.reduce((sum, snapshot) => {
+                    // When skipPackages is true, count subtotal even without package
+                    if (this.skipPackages) {
+                        return sum + (snapshot.subtotal || 0);
+                    }
                     return sum + (snapshot.package ? snapshot.subtotal : 0);
                 }, 0);
 
-                this.serviceProgressCount = this.orderedServiceSummaries.filter(
-                    (snapshot) => snapshot.package
-                ).length;
+                // When skipPackages is true, count all services as complete
+                this.serviceProgressCount = this.skipPackages 
+                    ? this.orderedServiceSummaries.length
+                    : this.orderedServiceSummaries.filter((snapshot) => snapshot.package).length;
 
                 this.calculateDiscount();
                 this.finalTotal = Math.max(this.subtotal - this.discount, 0);
@@ -2641,9 +2727,10 @@
             },
 
             calculateDiscount() {
-                const completedServices = this.orderedServiceSummaries.filter(
-                    (snapshot) => snapshot && snapshot.package
-                );
+                // When skipPackages is true, all services are considered completed
+                const completedServices = this.skipPackages
+                    ? this.orderedServiceSummaries.filter((snapshot) => snapshot !== null)
+                    : this.orderedServiceSummaries.filter((snapshot) => snapshot && snapshot.package);
                 const selectedCount = completedServices.length;
                 
                 // Count bundled services included in packages

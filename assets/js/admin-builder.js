@@ -67,6 +67,7 @@
 		selectedPackages: [],
 		selectedAddons: [],
 		location: '',
+		skipPackages: false, // If true, skip package selection and go directly to add-ons
 		bundles: {
 			rules: [],
 			rewards: {

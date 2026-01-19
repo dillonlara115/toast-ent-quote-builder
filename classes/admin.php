@@ -733,7 +733,24 @@ class teqb_Admin {
 			return;
 		}
 
+		// Debug: Log what we're receiving before sanitization
+		if (defined('WP_DEBUG') && WP_DEBUG) {
+			error_log('TEQB Save: Received selectedServices count: ' . (isset($data['selectedServices']) ? count($data['selectedServices']) : 0));
+			error_log('TEQB Save: Received selectedServices: ' . wp_json_encode($data['selectedServices'] ?? []));
+			error_log('TEQB Save: Received selectedPackages count: ' . (isset($data['selectedPackages']) ? count($data['selectedPackages']) : 0));
+			error_log('TEQB Save: Received selectedAddons count: ' . (isset($data['selectedAddons']) ? count($data['selectedAddons']) : 0));
+		}
+
 		$sanitized = $this->sanitize_builder_config($data);
+		
+		// Debug: Log what we're saving after sanitization
+		if (defined('WP_DEBUG') && WP_DEBUG) {
+			error_log('TEQB Save: Sanitized selectedServices count: ' . (isset($sanitized['selectedServices']) ? count($sanitized['selectedServices']) : 0));
+			error_log('TEQB Save: Sanitized selectedServices: ' . wp_json_encode($sanitized['selectedServices'] ?? []));
+			error_log('TEQB Save: Sanitized selectedPackages count: ' . (isset($sanitized['selectedPackages']) ? count($sanitized['selectedPackages']) : 0));
+			error_log('TEQB Save: Sanitized selectedAddons count: ' . (isset($sanitized['selectedAddons']) ? count($sanitized['selectedAddons']) : 0));
+		}
+		
 		$encoded = $this->encode_builder_config($sanitized);
 		update_post_meta($post_id, '_teqb_builder_config', $encoded);
 	}
@@ -746,15 +763,221 @@ class teqb_Admin {
 
 		$stored = get_post_meta($post_id, '_teqb_builder_config', true);
 		if (empty($stored)) {
+			// Check for seed file if no stored config exists (matches frontend behavior)
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Admin: No stored config found for builder ID: ' . $post_id . ', checking seed file...');
+			}
+			$seeded_config = $this->maybe_seed_builder_config($post_id);
+			if ($seeded_config) {
+				if (defined('WP_DEBUG') && WP_DEBUG) {
+					error_log('TEQB Admin: Seed config loaded successfully for builder ID: ' . $post_id);
+				}
+				// Merge seeded config with defaults
+				$merged = array_replace_recursive($default, $seeded_config);
+				// Preserve arrays from seeded config
+				if (isset($seeded_config['selectedServices']) && is_array($seeded_config['selectedServices'])) {
+					$merged['selectedServices'] = $seeded_config['selectedServices'];
+				}
+				if (isset($seeded_config['selectedPackages']) && is_array($seeded_config['selectedPackages'])) {
+					$merged['selectedPackages'] = $seeded_config['selectedPackages'];
+				}
+				if (isset($seeded_config['selectedAddons']) && is_array($seeded_config['selectedAddons'])) {
+					$merged['selectedAddons'] = $seeded_config['selectedAddons'];
+				}
+				if (isset($seeded_config['services']) && is_array($seeded_config['services'])) {
+					$merged['services'] = $seeded_config['services'];
+				}
+				return $merged;
+			} else {
+				if (defined('WP_DEBUG') && WP_DEBUG) {
+					error_log('TEQB Admin: No seed config found for builder ID: ' . $post_id);
+				}
+			}
 			return $default;
 		}
 
 		$decoded = json_decode($stored, true);
 		if (!is_array($decoded)) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Admin: Stored config is not a valid array for builder ID: ' . $post_id);
+			}
+			// Try seed file if stored config is invalid
+			$seeded_config = $this->maybe_seed_builder_config($post_id);
+			if ($seeded_config) {
+				$merged = array_replace_recursive($default, $seeded_config);
+				if (isset($seeded_config['selectedServices']) && is_array($seeded_config['selectedServices'])) {
+					$merged['selectedServices'] = $seeded_config['selectedServices'];
+				}
+				if (isset($seeded_config['selectedPackages']) && is_array($seeded_config['selectedPackages'])) {
+					$merged['selectedPackages'] = $seeded_config['selectedPackages'];
+				}
+				if (isset($seeded_config['selectedAddons']) && is_array($seeded_config['selectedAddons'])) {
+					$merged['selectedAddons'] = $seeded_config['selectedAddons'];
+				}
+				if (isset($seeded_config['services']) && is_array($seeded_config['services'])) {
+					$merged['services'] = $seeded_config['services'];
+				}
+				return $merged;
+			}
 			return $default;
 		}
 
-		return array_replace_recursive($default, $decoded);
+		// Check if stored config is effectively empty (no services or selectedServices)
+		$has_services = (!empty($decoded['selectedServices']) && is_array($decoded['selectedServices'])) || 
+		                (!empty($decoded['services']) && is_array($decoded['services']));
+		
+		if (!$has_services) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Admin: Stored config is empty (no services) for builder ID: ' . $post_id . ', checking seed file...');
+			}
+			// Try seed file if stored config is empty
+			$seeded_config = $this->maybe_seed_builder_config($post_id);
+			if ($seeded_config) {
+				if (defined('WP_DEBUG') && WP_DEBUG) {
+					error_log('TEQB Admin: Seed config loaded for empty builder ID: ' . $post_id);
+				}
+				// Merge seeded config with defaults
+				$merged = array_replace_recursive($default, $seeded_config);
+				if (isset($seeded_config['selectedServices']) && is_array($seeded_config['selectedServices'])) {
+					$merged['selectedServices'] = $seeded_config['selectedServices'];
+				}
+				if (isset($seeded_config['selectedPackages']) && is_array($seeded_config['selectedPackages'])) {
+					$merged['selectedPackages'] = $seeded_config['selectedPackages'];
+				}
+				if (isset($seeded_config['selectedAddons']) && is_array($seeded_config['selectedAddons'])) {
+					$merged['selectedAddons'] = $seeded_config['selectedAddons'];
+				}
+				if (isset($seeded_config['services']) && is_array($seeded_config['services'])) {
+					$merged['services'] = $seeded_config['services'];
+				}
+				return $merged;
+			}
+		}
+
+		// Merge configs, but preserve arrays (don't replace non-empty arrays with empty defaults)
+		$merged = array_replace_recursive($default, $decoded);
+		
+		// Ensure selectedServices, selectedPackages, and selectedAddons are preserved if they exist in decoded
+		if (isset($decoded['selectedServices']) && is_array($decoded['selectedServices'])) {
+			$merged['selectedServices'] = $decoded['selectedServices'];
+		}
+		if (isset($decoded['selectedPackages']) && is_array($decoded['selectedPackages'])) {
+			$merged['selectedPackages'] = $decoded['selectedPackages'];
+		}
+		if (isset($decoded['selectedAddons']) && is_array($decoded['selectedAddons'])) {
+			$merged['selectedAddons'] = $decoded['selectedAddons'];
+		}
+		
+		return $merged;
+	}
+	
+	/**
+	 * Seed builder configuration from packaged dataset when no meta exists.
+	 * Matches the logic from quote-builder.php
+	 */
+	protected function maybe_seed_builder_config($builder_id) {
+		$seed_file = apply_filters(
+			'teqb_builder_seed_file',
+			plugin_dir_path(dirname(__FILE__)) . 'sanitized_test.json',
+			$builder_id
+		);
+
+		if (!$seed_file || !file_exists($seed_file)) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Seed file not found: ' . ($seed_file ? $seed_file : 'null'));
+			}
+			return null;
+		}
+
+		$raw = file_get_contents($seed_file);
+		if (!$raw) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Could not read seed file: ' . $seed_file);
+			}
+			return null;
+		}
+
+		$decoded = json_decode($raw, true);
+		if (!is_array($decoded)) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Invalid JSON in seed file: ' . $seed_file);
+			}
+			return null;
+		}
+
+		// Debug: Log what we found
+		if (defined('WP_DEBUG') && WP_DEBUG) {
+			error_log('TEQB Seed: Loading seed config for builder ID: ' . $builder_id);
+			error_log('TEQB Seed: Seed file: ' . $seed_file);
+			error_log('TEQB Seed: Has services array? ' . (isset($decoded['services']) ? 'yes' : 'no'));
+			error_log('TEQB Seed: Has selectedServices array? ' . (isset($decoded['selectedServices']) ? 'yes' : 'no'));
+			error_log('TEQB Seed: Top-level keys: ' . implode(', ', array_keys($decoded)));
+		}
+
+		// Handle both old format (services array) and new format (selectedServices)
+		if (!empty($decoded['selectedServices']) && is_array($decoded['selectedServices'])) {
+			// New CPT-based format - use as-is
+			$config = $decoded;
+		} elseif (!empty($decoded['services']) && is_array($decoded['services'])) {
+			// Old format - preserve it but ensure selectedServices/selectedPackages/selectedAddons are initialized
+			// Check if there's already a stored config with selectedServices
+			$existing_stored = get_post_meta($builder_id, '_teqb_builder_config', true);
+			$existing_decoded = !empty($existing_stored) ? json_decode($existing_stored, true) : null;
+			
+			$config = [
+				'services' => $decoded['services'],
+				'bundles' => $decoded['bundles'] ?? [
+					'rules' => [],
+					'rewards' => [],
+				],
+				'form' => $decoded['form'] ?? [
+					'require_phone' => false,
+					'require_event_date' => false,
+					'success_message' => '',
+					'confirmation_copy' => '',
+				],
+				'notifications' => $decoded['notifications'] ?? [
+					'email' => '',
+				],
+			];
+			
+			// Initialize selectedServices/selectedPackages/selectedAddons arrays for admin interface
+			// Preserve existing values if they exist, otherwise initialize as empty arrays
+			if (is_array($existing_decoded)) {
+				$config['selectedServices'] = !empty($existing_decoded['selectedServices']) && is_array($existing_decoded['selectedServices']) 
+					? $existing_decoded['selectedServices'] 
+					: [];
+				$config['selectedPackages'] = !empty($existing_decoded['selectedPackages']) && is_array($existing_decoded['selectedPackages']) 
+					? $existing_decoded['selectedPackages'] 
+					: [];
+				$config['selectedAddons'] = !empty($existing_decoded['selectedAddons']) && is_array($existing_decoded['selectedAddons']) 
+					? $existing_decoded['selectedAddons'] 
+					: [];
+			} else {
+				// Initialize empty arrays so admin interface can display and allow selection
+				$config['selectedServices'] = [];
+				$config['selectedPackages'] = [];
+				$config['selectedAddons'] = [];
+			}
+		} else {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Seed file has neither services nor selectedServices arrays');
+			}
+			return null;
+		}
+
+		$config = apply_filters('teqb_seed_builder_config', $config, $builder_id, $seed_file);
+
+		// Auto-save the seed config to database (matches frontend behavior)
+		// This ensures the config is persisted and available for editing
+		$encoded = $this->encode_builder_config($config);
+		update_post_meta($builder_id, '_teqb_builder_config', $encoded);
+
+		if (defined('WP_DEBUG') && WP_DEBUG) {
+			error_log('TEQB Seed: Successfully loaded and saved seed config for builder ID: ' . $builder_id);
+		}
+
+		return $config;
 	}
 
 	protected function default_builder_config() {
@@ -763,6 +986,7 @@ class teqb_Admin {
 			'selectedPackages' => array(), // Array of package post IDs with price overrides: { post_id: 123, price_override: 1500 }
 			'selectedAddons' => array(),   // Array of addon post IDs with price overrides: { post_id: 456, price_override: 200 }
 			'location' => '',              // Location slug filter
+			'skipPackages' => false,      // If true, skip package selection and go directly to add-ons
 			'bundles'  => array(
 				'rules' => array(),
 				'rewards' => array(
@@ -787,7 +1011,7 @@ class teqb_Admin {
 				),
 			),
 			'form' => array(
-				'require_phone'      => true,
+				'require_phone'      => false,
 				'require_event_date' => false,
 				'success_message'    => '',
 				'confirmation_copy'  => '',
@@ -802,6 +1026,68 @@ class teqb_Admin {
 		if (is_array($value)) {
 			$sanitized = array();
 			foreach ($value as $key => $item) {
+				// Handle selectedServices - array of integers (post IDs)
+				if ($key === 'selectedServices' && is_array($item)) {
+					$sanitized[$key] = array();
+					foreach ($item as $service_id) {
+						// Convert to integer if numeric (handles both int and string numbers)
+						if (is_numeric($service_id)) {
+							$sanitized_id = absint($service_id);
+							if ($sanitized_id > 0) {
+								$sanitized[$key][] = $sanitized_id;
+							}
+						}
+					}
+					// Remove duplicates and re-index
+					$sanitized[$key] = array_values(array_unique($sanitized[$key]));
+					continue;
+				}
+				
+				// Handle selectedPackages - array of objects with post_id and price_override
+				if ($key === 'selectedPackages' && is_array($item)) {
+					$sanitized[$key] = array();
+					foreach ($item as $pkg) {
+						if (is_array($pkg) && isset($pkg['post_id'])) {
+							$sanitized_pkg = array(
+								'post_id' => absint($pkg['post_id'])
+							);
+							if (isset($pkg['price_override'])) {
+								$price_override = $pkg['price_override'];
+								if ($price_override !== null && $price_override !== '' && is_numeric($price_override)) {
+									$sanitized_pkg['price_override'] = floatval($price_override);
+								} else {
+									$sanitized_pkg['price_override'] = null;
+								}
+							}
+							$sanitized[$key][] = $sanitized_pkg;
+						}
+					}
+					continue;
+				}
+				
+				// Handle selectedAddons - array of objects with post_id and price_override
+				if ($key === 'selectedAddons' && is_array($item)) {
+					$sanitized[$key] = array();
+					foreach ($item as $addon) {
+						if (is_array($addon) && isset($addon['post_id'])) {
+							$sanitized_addon = array(
+								'post_id' => absint($addon['post_id'])
+							);
+							if (isset($addon['price_override'])) {
+								$price_override = $addon['price_override'];
+								if ($price_override !== null && $price_override !== '' && is_numeric($price_override)) {
+									$sanitized_addon['price_override'] = floatval($price_override);
+								} else {
+									$sanitized_addon['price_override'] = null;
+								}
+							}
+							$sanitized[$key][] = $sanitized_addon;
+						}
+					}
+					continue;
+				}
+				
+				// Recursively sanitize other arrays
 				$sanitized[$key] = $this->sanitize_builder_config($item);
 			}
 			return $sanitized;
@@ -816,6 +1102,11 @@ class teqb_Admin {
 		}
 
 		if (is_string($value)) {
+			// Use sanitize_text_field for short strings, sanitize_textarea_field for longer content
+			// But preserve numeric strings as-is if they look like IDs
+			if (is_numeric($value) && strlen($value) < 20) {
+				return $value;
+			}
 			return sanitize_textarea_field($value);
 		}
 

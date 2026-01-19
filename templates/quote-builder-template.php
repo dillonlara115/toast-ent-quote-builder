@@ -31,6 +31,7 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
         <div class="step-indicator"
+             x-show="!skipPackages"
              :class="{ 'active': currentStep === 2, 'completed': serviceProgressCount > 0 }"
              :aria-current="currentStep === 2 ? 'step' : null">
             <div class="step-number">
@@ -49,7 +50,7 @@ if (!defined('ABSPATH')) {
              :class="{ 'active': currentStep === 3 || currentStep === 4, 'completed': serviceProgressCount > 0 && currentStep >= 5 }"
              :aria-current="(currentStep === 3 || currentStep === 4) ? 'step' : null">
             <div class="step-number">
-                <span class="step-index">3</span>
+                <span class="step-index" x-text="skipPackages ? '2' : '3'"></span>
                 <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M5 13l4 4L19 7"/>
@@ -64,7 +65,7 @@ if (!defined('ABSPATH')) {
              :class="{ 'active': currentStep >= 5, 'completed': currentStep > 5 }"
              :aria-current="currentStep >= 5 && currentStep < 6 ? 'step' : null">
             <div class="step-number">
-                <span class="step-index">4</span>
+                <span class="step-index" x-text="skipPackages ? '3' : '4'"></span>
                 <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M5 13l4 4L19 7"/>
@@ -172,7 +173,7 @@ if (!defined('ABSPATH')) {
                             style="background-color: var(--qb-color);"
                             :disabled="selectedServices.length === 0"
                             type="button">
-                        Next: Choose Packages
+                        <span x-text="skipPackages ? 'Next: Choose Add-ons' : 'Next: Choose Packages'"></span>
                     </button>
                 </div>
             </div>
@@ -196,7 +197,7 @@ if (!defined('ABSPATH')) {
     </div>
 
     <!-- Step 2: Package Selection -->
-    <div class="form-step" :class="{ 'active': currentStep === 2 }">
+    <div class="form-step" :class="{ 'active': currentStep === 2 }" x-show="!skipPackages">
         <div class="flex items-center justify-between mb-4">
             <div>
                 <p class="text-sm  font-semibold uppercase tracking-wide">
@@ -516,10 +517,11 @@ if (!defined('ABSPATH')) {
         </div>
 
         <div class="navigation-buttons mt-6">
-            <button @click="backToPackages"
+            <button @click="skipPackages ? backToServices() : backToPackages()"
                     class="  font-medium py-2 px-4 rounded"
-                    type="button">
-                Back to Packages
+                    type="button"
+                    x-show="currentStep === 4">
+                <span x-text="skipPackages ? 'Back to Services' : 'Back to Packages'"></span>
             </button>
             <button @click="completeService"
                     class="text-white font-bold py-2 px-4 rounded"
@@ -561,11 +563,11 @@ if (!defined('ABSPATH')) {
                     </div>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label for="phone" class="form-label" :class="{ 'form-label-error': isFieldInvalid('phone') }">Phone Number *</label>
+                            <label for="phone" class="form-label" :class="{ 'form-label-error': isFieldInvalid('phone') }">Phone Number <span x-show="requirePhone">*</span></label>
                             <input type="tel" id="phone" x-model="formData.phone" 
                                    @input="clearFieldError('phone')"
                                    @blur="validateFormFields()"
-                                   required 
+                                   :required="requirePhone"
                                    class="form-input" 
                                    :class="{ 'form-input-error': isFieldInvalid('phone') }">
                             <p x-show="isFieldInvalid('phone')" class="form-error-message" x-text="getFieldErrorMessage('phone')"></p>

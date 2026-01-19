@@ -1513,6 +1513,9 @@ class teqb_Quote_Builder extends teqb_Base {
             $result['rewardCatalog'] = $reward_catalog;
         }
         
+        // Add skipPackages flag
+        $result['skipPackages'] = !empty($config['skipPackages']);
+        
         return $result;
     }
     
