@@ -103,16 +103,31 @@ class teqb_CPT_Loader {
 			$includes = self::text_to_array(get_post_meta($package_post->ID, '_teqb_includes', true));
 			$bonus_options = self::text_to_array(get_post_meta($package_post->ID, '_teqb_bonus_options', true));
 			
+			$price = floatval(get_post_meta($package_post->ID, '_teqb_price', true));
+			$hourly_rate = get_post_meta($package_post->ID, '_teqb_hourly_rate', true);
+			$minimum_hours = get_post_meta($package_post->ID, '_teqb_minimum_hours', true);
+			
+			// If hourly pricing is set, calculate price from hourly_rate × minimum_hours
+			if (!empty($hourly_rate) && !empty($minimum_hours)) {
+				$price = floatval($hourly_rate) * intval($minimum_hours);
+			}
+			
 			$package = array(
 				'post_id' => $package_post->ID,
 				'id' => $package_id_meta,
 				'name' => $package_post->post_title,
-				'price' => floatval(get_post_meta($package_post->ID, '_teqb_price', true)),
+				'price' => $price,
 				'includes' => $includes,
 				'bonusOptions' => $bonus_options,
 				'bonusLimit' => intval(get_post_meta($package_post->ID, '_teqb_bonus_limit', true)),
 				'menu_order' => $package_post->menu_order, // Include menu_order for sorting
 			);
+			
+			// Add hourly pricing fields if they exist
+			if (!empty($hourly_rate) && !empty($minimum_hours)) {
+				$package['hourlyRate'] = floatval($hourly_rate);
+				$package['minimumHours'] = intval($minimum_hours);
+			}
 			
 			// Only add additionalTimeMessage if it's set
 			$additional_time_message = get_post_meta($package_post->ID, '_teqb_additional_time_message', true);

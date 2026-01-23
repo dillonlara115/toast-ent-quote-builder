@@ -706,40 +706,93 @@ class teqb_Admin {
 	}
 
 	public function save_builder_config($post_id, $post, $update) {
-		if (!isset($_POST['teqb_builder_config_nonce']) || !wp_verify_nonce($_POST['teqb_builder_config_nonce'], 'teqb_builder_config')) {
+		// Check post type - handle both object and array formats
+		$post_type = '';
+		if (is_object($post)) {
+			$post_type = $post->post_type ?? '';
+		} elseif (is_array($post)) {
+			$post_type = $post['post_type'] ?? '';
+		} else {
+			// Fallback: get post type from database
+			$post_type = get_post_type($post_id);
+		}
+		
+		if ($post_type !== 'teqb_builder') {
+			error_log('TEQB Save: Wrong post type: ' . $post_type . ' (expected teqb_builder)');
 			return;
 		}
 
+		// Always log save attempts (not just in WP_DEBUG mode) for troubleshooting
+		error_log('TEQB Save: save_builder_config called for post ID: ' . $post_id . ', post type: ' . $post_type);
+		error_log('TEQB Save: POST data keys: ' . implode(', ', array_keys($_POST)));
+		error_log('TEQB Save: Nonce present: ' . (isset($_POST['teqb_builder_config_nonce']) ? 'yes' : 'no'));
+		error_log('TEQB Save: Config present: ' . (isset($_POST['teqb_builder_config']) ? 'yes' : 'no'));
+		if (isset($_POST['teqb_builder_config'])) {
+			$raw_preview = wp_unslash($_POST['teqb_builder_config']);
+			error_log('TEQB Save: Config preview (first 200 chars): ' . substr($raw_preview, 0, 200));
+		}
+
+		// Check nonce, but don't fail completely if it's missing (might be AJAX save)
+		if (!isset($_POST['teqb_builder_config_nonce'])) {
+			error_log('TEQB Save: Nonce field missing in POST - but continuing if config is present');
+			if (!isset($_POST['teqb_builder_config'])) {
+				return;
+			}
+		} else {
+			$nonce_verified = wp_verify_nonce($_POST['teqb_builder_config_nonce'], 'teqb_builder_config');
+			if (!$nonce_verified) {
+				error_log('TEQB Save: Nonce verification failed. Nonce value: ' . substr($_POST['teqb_builder_config_nonce'], 0, 20) . '...');
+				// Still try to save if config is present - might be a timing issue
+				if (!isset($_POST['teqb_builder_config'])) {
+					return;
+				}
+				error_log('TEQB Save: Nonce failed but config present - attempting save anyway');
+			}
+		}
+
 		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Save: Skipping autosave');
+			}
 			return;
 		}
 
 		if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Save: Skipping autosave/revision');
+			}
 			return;
 		}
 
 		if (!current_user_can('edit_teqb_builder', $post_id)) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Save: User lacks permission');
+			}
 			return;
 		}
 
 		$raw = isset($_POST['teqb_builder_config']) ? wp_unslash($_POST['teqb_builder_config']) : '';
 		if ($raw === '') {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Save: Empty config received, deleting meta');
+			}
 			delete_post_meta($post_id, '_teqb_builder_config');
 			return;
 		}
 
 		$data = json_decode($raw, true);
 		if (!is_array($data)) {
+			error_log('TEQB Save: Failed to decode JSON. Raw length: ' . strlen($raw));
+			error_log('TEQB Save: JSON error: ' . json_last_error_msg());
+			error_log('TEQB Save: Raw data preview: ' . substr($raw, 0, 500));
 			return;
 		}
 
-		// Debug: Log what we're receiving before sanitization
-		if (defined('WP_DEBUG') && WP_DEBUG) {
-			error_log('TEQB Save: Received selectedServices count: ' . (isset($data['selectedServices']) ? count($data['selectedServices']) : 0));
-			error_log('TEQB Save: Received selectedServices: ' . wp_json_encode($data['selectedServices'] ?? []));
-			error_log('TEQB Save: Received selectedPackages count: ' . (isset($data['selectedPackages']) ? count($data['selectedPackages']) : 0));
-			error_log('TEQB Save: Received selectedAddons count: ' . (isset($data['selectedAddons']) ? count($data['selectedAddons']) : 0));
-		}
+		// Always log (not just in WP_DEBUG mode)
+		error_log('TEQB Save: Successfully decoded JSON. selectedServices count: ' . (isset($data['selectedServices']) ? count($data['selectedServices']) : 0));
+		error_log('TEQB Save: Received selectedServices: ' . wp_json_encode($data['selectedServices'] ?? []));
+		error_log('TEQB Save: Received selectedPackages count: ' . (isset($data['selectedPackages']) ? count($data['selectedPackages']) : 0));
+		error_log('TEQB Save: Received selectedAddons count: ' . (isset($data['selectedAddons']) ? count($data['selectedAddons']) : 0));
 
 		$sanitized = $this->sanitize_builder_config($data);
 		
@@ -752,7 +805,74 @@ class teqb_Admin {
 		}
 		
 		$encoded = $this->encode_builder_config($sanitized);
-		update_post_meta($post_id, '_teqb_builder_config', $encoded);
+		
+		// Verify encoding before saving (encoded is now base64, so verify we can decode it)
+		if (strpos($encoded, 'base64:') === 0) {
+			$base64_data = substr($encoded, 7);
+			$decoded_json = base64_decode($base64_data, true);
+			if ($decoded_json === false) {
+				error_log('TEQB Save: ERROR - Failed to base64 decode!');
+				error_log('TEQB Save: Encoded length: ' . strlen($encoded));
+				return; // Don't save invalid base64
+			}
+			$test_decode = json_decode($decoded_json, true);
+			if (!is_array($test_decode)) {
+				error_log('TEQB Save: ERROR - Base64 decoded JSON cannot be parsed! JSON error: ' . json_last_error_msg());
+				error_log('TEQB Save: Encoded length: ' . strlen($encoded));
+				error_log('TEQB Save: Decoded JSON preview: ' . substr($decoded_json, 0, 500));
+				return; // Don't save invalid JSON
+			} else {
+				error_log('TEQB Save: Encoding verified - base64 and JSON decode successfully');
+			}
+		} else {
+			error_log('TEQB Save: ERROR - Encoded config does not have base64: prefix!');
+			return; // Don't save invalid format
+		}
+		
+		// WordPress expects slashed data for update_post_meta
+		// But for JSON strings, we should NOT slash them - WordPress handles it automatically
+		// However, if WordPress is corrupting it, we might need to use add_post_meta with $unique=false
+		// For now, try without wp_slash first
+		$saved = update_post_meta($post_id, '_teqb_builder_config', $encoded);
+		error_log('TEQB Save: update_post_meta result: ' . ($saved ? 'success' : 'failed'));
+		error_log('TEQB Save: Saved config preview: ' . substr($encoded, 0, 200));
+		
+		// Verify it was saved correctly
+		$verify = get_post_meta($post_id, '_teqb_builder_config', true);
+		error_log('TEQB Save: Verification - retrieved config length: ' . strlen($verify));
+		error_log('TEQB Save: Verification - original encoded length: ' . strlen($encoded));
+		
+		// Check if lengths match (if not, WordPress might have modified it)
+		if (strlen($verify) !== strlen($encoded)) {
+			error_log('TEQB Save: WARNING - Length mismatch! Original: ' . strlen($encoded) . ', Retrieved: ' . strlen($verify));
+		}
+		
+		// Try multiple decode methods - handle base64-encoded configs
+		$verify_decoded = null;
+		if (!empty($verify) && strpos($verify, 'base64:') === 0) {
+			// Base64-encoded format
+			$base64_data = substr($verify, 7);
+			$decoded_json = base64_decode($base64_data, true);
+			if ($decoded_json !== false) {
+				$verify_decoded = json_decode($decoded_json, true);
+			}
+		} else {
+			// Plain JSON format (backward compatibility)
+			$verify_decoded = json_decode($verify, true);
+			if (!is_array($verify_decoded)) {
+				$verify_decoded = json_decode(wp_unslash($verify), true);
+			}
+		}
+		
+		if (!is_array($verify_decoded)) {
+			error_log('TEQB Save: Verification FAILED - retrieved config cannot be decoded!');
+			error_log('TEQB Save: Verification JSON error: ' . json_last_error_msg());
+			error_log('TEQB Save: Verification JSON error code: ' . json_last_error());
+			error_log('TEQB Save: Verification preview (first 500): ' . substr($verify, 0, 500));
+			error_log('TEQB Save: Verification preview (last 500): ' . substr($verify, -500));
+		} else {
+			error_log('TEQB Save: Verification SUCCESS - retrieved config is valid');
+		}
 	}
 
 	protected function get_builder_config($post_id) {
@@ -762,6 +882,72 @@ class teqb_Admin {
 		}
 
 		$stored = get_post_meta($post_id, '_teqb_builder_config', true);
+		
+		// Debug: Log what we retrieved
+		error_log('TEQB Admin: Retrieved stored config for builder ID: ' . $post_id);
+		error_log('TEQB Admin: Stored value type: ' . gettype($stored));
+		error_log('TEQB Admin: Stored value empty: ' . (empty($stored) ? 'yes' : 'no'));
+		if (!empty($stored)) {
+			error_log('TEQB Admin: Stored value length: ' . strlen($stored));
+			error_log('TEQB Admin: Stored value preview: ' . substr($stored, 0, 200));
+		}
+		
+		// Handle base64-encoded configs (new format) FIRST - before trying plain JSON
+		$decoded = null;
+		if (!empty($stored)) {
+			if (strpos($stored, 'base64:') === 0) {
+				// New base64-encoded format
+				$base64_data = substr($stored, 7); // Remove 'base64:' prefix
+				$decoded_json = base64_decode($base64_data, true);
+				if ($decoded_json !== false) {
+					$decoded = json_decode($decoded_json, true);
+					if (is_array($decoded)) {
+						error_log('TEQB Admin: Successfully decoded base64 config, length: ' . strlen($decoded_json));
+					} else {
+						error_log('TEQB Admin: Base64 decoded but JSON parse failed: ' . json_last_error_msg());
+					}
+				} else {
+					error_log('TEQB Admin: Failed to base64 decode stored config');
+				}
+			} else {
+				// Old plain JSON format - try to decode
+				$decoded = json_decode($stored, true);
+				if (!is_array($decoded)) {
+					// Try with wp_unslash
+					$decoded = json_decode(wp_unslash($stored), true);
+				}
+				if (is_array($decoded)) {
+					error_log('TEQB Admin: Successfully decoded plain JSON config');
+				} else {
+					error_log('TEQB Admin: Failed to decode plain JSON: ' . json_last_error_msg());
+					// Don't treat as empty - preserve corrupted data to prevent seed overwrite
+					error_log('TEQB Admin: WARNING - Stored config exists but is corrupted. NOT loading seed to preserve user data.');
+				}
+			}
+		}
+		
+		// If we successfully decoded, use it (skip the redundant decode below)
+		if (is_array($decoded)) {
+			error_log('TEQB Admin: Successfully loaded stored config for builder ID: ' . $post_id);
+			// Merge with defaults to ensure all required keys exist
+			$merged = array_replace_recursive($default, $decoded);
+			// Preserve arrays from stored config
+			if (isset($decoded['selectedServices']) && is_array($decoded['selectedServices'])) {
+				$merged['selectedServices'] = $decoded['selectedServices'];
+			}
+			if (isset($decoded['selectedPackages']) && is_array($decoded['selectedPackages'])) {
+				$merged['selectedPackages'] = $decoded['selectedPackages'];
+			}
+			if (isset($decoded['selectedAddons']) && is_array($decoded['selectedAddons'])) {
+				$merged['selectedAddons'] = $decoded['selectedAddons'];
+			}
+			if (isset($decoded['services']) && is_array($decoded['services'])) {
+				$merged['services'] = $decoded['services'];
+			}
+			return $merged;
+		}
+		
+		// Only load seed if there's NO stored config at all (not if it's corrupted)
 		if (empty($stored)) {
 			// Check for seed file if no stored config exists (matches frontend behavior)
 			if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -795,13 +981,42 @@ class teqb_Admin {
 			}
 			return $default;
 		}
-
-		$decoded = json_decode($stored, true);
-		if (!is_array($decoded)) {
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				error_log('TEQB Admin: Stored config is not a valid array for builder ID: ' . $post_id);
+		
+		// If we successfully decoded, use it
+		if (is_array($decoded)) {
+			error_log('TEQB Admin: Successfully loaded stored config for builder ID: ' . $post_id);
+			// Merge with defaults to ensure all required keys exist
+			$merged = array_replace_recursive($default, $decoded);
+			// Preserve arrays from stored config
+			if (isset($decoded['selectedServices']) && is_array($decoded['selectedServices'])) {
+				$merged['selectedServices'] = $decoded['selectedServices'];
 			}
-			// Try seed file if stored config is invalid
+			if (isset($decoded['selectedPackages']) && is_array($decoded['selectedPackages'])) {
+				$merged['selectedPackages'] = $decoded['selectedPackages'];
+			}
+			if (isset($decoded['selectedAddons']) && is_array($decoded['selectedAddons'])) {
+				$merged['selectedAddons'] = $decoded['selectedAddons'];
+			}
+			if (isset($decoded['services']) && is_array($decoded['services'])) {
+				$merged['services'] = $decoded['services'];
+			}
+			return $merged;
+		}
+		
+		// CRITICAL: If stored config exists but is corrupted, DON'T overwrite with seed!
+		// This prevents wiping out user data. Only use seed if there's NO stored config at all.
+		if (!empty($stored) && !is_array($decoded)) {
+			error_log('TEQB Admin: ERROR - Stored config exists but is corrupted/invalid for builder ID: ' . $post_id);
+			error_log('TEQB Admin: NOT loading seed to prevent overwriting user data. Returning default config.');
+			error_log('TEQB Admin: User should re-save the builder configuration to fix corruption.');
+			// Return default instead of seed to prevent data loss
+			return $default;
+		}
+		
+		// Only try seed file if there's NO stored config at all (empty string)
+		// This is safe because there's nothing to overwrite
+		if (empty($stored) && !is_array($decoded)) {
+			// Try seed file if no stored config exists
 			$seeded_config = $this->maybe_seed_builder_config($post_id);
 			if ($seeded_config) {
 				$merged = array_replace_recursive($default, $seeded_config);
@@ -819,12 +1034,9 @@ class teqb_Admin {
 				}
 				return $merged;
 			}
-			return $default;
 		}
-
-		// Check if stored config is effectively empty (no services or selectedServices)
-		$has_services = (!empty($decoded['selectedServices']) && is_array($decoded['selectedServices'])) || 
-		                (!empty($decoded['services']) && is_array($decoded['services']));
+		
+		return $default;
 		
 		if (!$has_services) {
 			if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -968,13 +1180,48 @@ class teqb_Admin {
 
 		$config = apply_filters('teqb_seed_builder_config', $config, $builder_id, $seed_file);
 
-		// Auto-save the seed config to database (matches frontend behavior)
-		// This ensures the config is persisted and available for editing
-		$encoded = $this->encode_builder_config($config);
-		update_post_meta($builder_id, '_teqb_builder_config', $encoded);
-
-		if (defined('WP_DEBUG') && WP_DEBUG) {
-			error_log('TEQB Seed: Successfully loaded and saved seed config for builder ID: ' . $builder_id);
+		// Only auto-save seed config if there's no existing valid config
+		// This prevents overwriting user-saved configurations
+		$existing_stored = get_post_meta($builder_id, '_teqb_builder_config', true);
+		
+		// Try multiple decode methods
+		$existing_decoded = null;
+		if (!empty($existing_stored)) {
+			// Try with wp_unslash first
+			$existing_decoded = json_decode(wp_unslash($existing_stored), true);
+			if (!is_array($existing_decoded)) {
+				// Try without wp_unslash
+				$existing_decoded = json_decode($existing_stored, true);
+			}
+			if (!is_array($existing_decoded) && is_string($existing_decoded)) {
+				// Try double-decode
+				$existing_decoded = json_decode($existing_decoded, true);
+			}
+		}
+		
+		// Check if existing config is valid (has selectedServices or services array)
+		// Also check if it's non-empty (length > 100) to avoid overwriting corrupted but non-empty data
+		$has_valid_existing = !empty($existing_stored) && strlen($existing_stored) > 100 && is_array($existing_decoded) && (
+			(!empty($existing_decoded['selectedServices']) && is_array($existing_decoded['selectedServices'])) ||
+			(!empty($existing_decoded['services']) && is_array($existing_decoded['services']))
+		);
+		
+		if (!$has_valid_existing) {
+			// Auto-save the seed config to database only if no valid config exists
+			$encoded = $this->encode_builder_config($config);
+			update_post_meta($builder_id, '_teqb_builder_config', $encoded);
+			
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Successfully loaded and saved seed config for builder ID: ' . $builder_id);
+				if (!empty($existing_stored)) {
+					error_log('TEQB Seed: Existing config was invalid (length: ' . strlen($existing_stored) . ', decode failed)');
+				}
+			}
+		} else {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('TEQB Seed: Skipping auto-save - valid config already exists for builder ID: ' . $builder_id);
+				error_log('TEQB Seed: Existing config length: ' . strlen($existing_stored));
+			}
 		}
 
 		return $config;
@@ -985,6 +1232,7 @@ class teqb_Admin {
 			'selectedServices' => array(), // Array of service post IDs
 			'selectedPackages' => array(), // Array of package post IDs with price overrides: { post_id: 123, price_override: 1500 }
 			'selectedAddons' => array(),   // Array of addon post IDs with price overrides: { post_id: 456, price_override: 200 }
+			'serviceOverrides' => array(), // Per-service overrides keyed by service post ID: { 123: { features_title: '', features: [], ... } }
 			'location' => '',              // Location slug filter
 			'skipPackages' => false,      // If true, skip package selection and go directly to add-ons
 			'bundles'  => array(
@@ -1018,6 +1266,7 @@ class teqb_Admin {
 			),
 			'notifications' => array(
 				'email' => '',
+				'cc_email' => '', // Comma-separated CC email addresses
 			),
 		);
 	}
@@ -1087,6 +1336,55 @@ class teqb_Admin {
 					continue;
 				}
 				
+				// Handle serviceOverrides - keyed by service post ID with override fields
+				if ($key === 'serviceOverrides' && is_array($item)) {
+					$sanitized[$key] = array();
+					foreach ($item as $service_post_id => $override) {
+						if (!is_numeric($service_post_id) || !is_array($override)) {
+							continue;
+						}
+						$service_id = absint($service_post_id);
+						if ($service_id <= 0) {
+							continue;
+						}
+						
+						$sanitized_override = array();
+						
+						// Sanitize string fields
+						if (isset($override['features_title']) && !empty($override['features_title'])) {
+							$sanitized_override['features_title'] = sanitize_text_field($override['features_title']);
+						}
+						if (isset($override['subtitle']) && !empty($override['subtitle'])) {
+							$sanitized_override['subtitle'] = sanitize_text_field($override['subtitle']);
+						}
+						if (isset($override['package_screen_title']) && !empty($override['package_screen_title'])) {
+							$sanitized_override['package_screen_title'] = sanitize_text_field($override['package_screen_title']);
+						}
+						if (isset($override['package_screen_description']) && !empty($override['package_screen_description'])) {
+							$sanitized_override['package_screen_description'] = sanitize_textarea_field($override['package_screen_description']);
+						}
+						
+						// Sanitize array fields (features, paragraphs)
+						if (isset($override['features']) && is_array($override['features']) && !empty($override['features'])) {
+							$sanitized_override['features'] = array_values(array_filter(array_map('sanitize_text_field', $override['features'])));
+						}
+						if (isset($override['paragraphs']) && is_array($override['paragraphs']) && !empty($override['paragraphs'])) {
+							$sanitized_override['paragraphs'] = array_values(array_filter(array_map('sanitize_textarea_field', $override['paragraphs'])));
+						}
+						
+						// Sanitize boolean field
+						if (isset($override['hide_hourly_breakdown'])) {
+							$sanitized_override['hide_hourly_breakdown'] = (bool) $override['hide_hourly_breakdown'];
+						}
+						
+						// Only add if there are actual overrides
+						if (!empty($sanitized_override)) {
+							$sanitized[$key][$service_id] = $sanitized_override;
+						}
+					}
+					continue;
+				}
+				
 				// Recursively sanitize other arrays
 				$sanitized[$key] = $this->sanitize_builder_config($item);
 			}
@@ -1120,14 +1418,26 @@ class teqb_Admin {
 		$encoded = wp_json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 		if ($encoded === false) {
+			error_log('TEQB Encode: First encode attempt failed: ' . json_last_error_msg());
 			$encoded = wp_json_encode($config, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 		}
 
 		if ($encoded === false) {
+			error_log('TEQB Encode: All encode attempts failed: ' . json_last_error_msg());
 			wp_die(__('Failed to encode builder configuration for storage.', 'teqb'));
 		}
+		
+		// Verify the encoded JSON can be decoded
+		$test_decode = json_decode($encoded, true);
+		if (!is_array($test_decode)) {
+			error_log('TEQB Encode: WARNING - Encoded JSON cannot be decoded! Error: ' . json_last_error_msg());
+			error_log('TEQB Encode: Encoded length: ' . strlen($encoded));
+			error_log('TEQB Encode: Encoded preview: ' . substr($encoded, 0, 500));
+		}
 
-		return $encoded;
+		// Base64 encode to avoid WordPress quote/escape issues that cause truncation
+		// Prefix with 'base64:' so we know it's encoded
+		return 'base64:' . base64_encode($encoded);
 	}
 
 	/**
@@ -2217,6 +2527,8 @@ class teqb_Admin {
 		$package_id = get_post_meta($post->ID, '_teqb_package_id', true);
 		$service_id = get_post_meta($post->ID, '_teqb_service_id', true);
 		$price = get_post_meta($post->ID, '_teqb_price', true);
+		$hourly_rate = get_post_meta($post->ID, '_teqb_hourly_rate', true);
+		$minimum_hours = get_post_meta($post->ID, '_teqb_minimum_hours', true);
 		$includes = get_post_meta($post->ID, '_teqb_includes', true);
 		$bonus_options = get_post_meta($post->ID, '_teqb_bonus_options', true);
 		$bonus_limit = get_post_meta($post->ID, '_teqb_bonus_limit', true);
@@ -2262,11 +2574,77 @@ class teqb_Admin {
 				</td>
 			</tr>
 			<tr>
-				<th><label for="teqb_price"><?php esc_html_e('Price', 'teqb'); ?></label></th>
+				<th><label for="teqb_pricing_type"><?php esc_html_e('Pricing Type', 'teqb'); ?></label></th>
 				<td>
-					<input type="number" id="teqb_price" name="teqb_price" value="<?php echo esc_attr($price); ?>" step="0.01" min="0" class="small-text" required>
+					<select id="teqb_pricing_type" name="teqb_pricing_type" class="regular-text">
+						<option value="fixed" <?php selected(empty($hourly_rate) || empty($minimum_hours)); ?>><?php esc_html_e('Fixed Price', 'teqb'); ?></option>
+						<option value="hourly" <?php selected(!empty($hourly_rate) && !empty($minimum_hours)); ?>><?php esc_html_e('Hourly Rate', 'teqb'); ?></option>
+					</select>
+					<p class="description"><?php esc_html_e('Choose between fixed price or hourly rate pricing', 'teqb'); ?></p>
 				</td>
 			</tr>
+			<tr id="teqb_fixed_price_row" style="<?php echo (!empty($hourly_rate) && !empty($minimum_hours)) ? 'display:none;' : ''; ?>">
+				<th><label for="teqb_price"><?php esc_html_e('Price', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_price" name="teqb_price" value="<?php echo esc_attr($price); ?>" step="0.01" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Fixed package price', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr id="teqb_hourly_rate_row" style="<?php echo (empty($hourly_rate) || empty($minimum_hours)) ? 'display:none;' : ''; ?>">
+				<th><label for="teqb_hourly_rate"><?php esc_html_e('Hourly Rate', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_hourly_rate" name="teqb_hourly_rate" value="<?php echo esc_attr($hourly_rate); ?>" step="0.01" min="0" class="small-text">
+					<p class="description"><?php esc_html_e('Price per hour', 'teqb'); ?></p>
+				</td>
+			</tr>
+			<tr id="teqb_minimum_hours_row" style="<?php echo (empty($hourly_rate) || empty($minimum_hours)) ? 'display:none;' : ''; ?>">
+				<th><label for="teqb_minimum_hours"><?php esc_html_e('Minimum Hours', 'teqb'); ?></label></th>
+				<td>
+					<input type="number" id="teqb_minimum_hours" name="teqb_minimum_hours" value="<?php echo esc_attr($minimum_hours); ?>" step="1" min="1" class="small-text">
+					<p class="description"><?php esc_html_e('Minimum number of hours required', 'teqb'); ?></p>
+					<p id="teqb_calculated_price" style="margin-top: 8px; font-weight: bold; color: #2271b1;">
+						<?php 
+						if (!empty($hourly_rate) && !empty($minimum_hours)) {
+							$calculated = floatval($hourly_rate) * intval($minimum_hours);
+							echo sprintf(__('Base Price: $%s (%s × %s hours)', 'teqb'), number_format($calculated, 2), number_format($hourly_rate, 2), $minimum_hours);
+						}
+						?>
+					</p>
+				</td>
+			</tr>
+			<script>
+			jQuery(document).ready(function($) {
+				function togglePricingFields() {
+					var pricingType = $('#teqb_pricing_type').val();
+					if (pricingType === 'hourly') {
+						$('#teqb_fixed_price_row').hide();
+						$('#teqb_hourly_rate_row, #teqb_minimum_hours_row').show();
+						$('#teqb_price').removeAttr('required');
+						$('#teqb_hourly_rate, #teqb_minimum_hours').attr('required', 'required');
+					} else {
+						$('#teqb_fixed_price_row').show();
+						$('#teqb_hourly_rate_row, #teqb_minimum_hours_row').hide();
+						$('#teqb_price').attr('required', 'required');
+						$('#teqb_hourly_rate, #teqb_minimum_hours').removeAttr('required');
+					}
+				}
+				
+				$('#teqb_pricing_type').on('change', togglePricingFields);
+				
+				function updateCalculatedPrice() {
+					var hourlyRate = parseFloat($('#teqb_hourly_rate').val()) || 0;
+					var minHours = parseInt($('#teqb_minimum_hours').val()) || 0;
+					if (hourlyRate > 0 && minHours > 0) {
+						var calculated = hourlyRate * minHours;
+						$('#teqb_calculated_price').text('Base Price: $' + calculated.toFixed(2) + ' ($' + hourlyRate.toFixed(2) + ' × ' + minHours + ' hours)');
+					} else {
+						$('#teqb_calculated_price').text('');
+					}
+				}
+				
+				$('#teqb_hourly_rate, #teqb_minimum_hours').on('input', updateCalculatedPrice);
+			});
+			</script>
 			<tr>
 				<th><label for="teqb_includes"><?php esc_html_e('Includes', 'teqb'); ?></label></th>
 				<td>
@@ -2319,11 +2697,16 @@ class teqb_Admin {
 			'teqb_package_id' => 'sanitize_text_field',
 			'teqb_service_id' => 'absint',
 			'teqb_price' => 'floatval',
+			'teqb_hourly_rate' => 'floatval',
+			'teqb_minimum_hours' => 'absint',
 			'teqb_includes' => 'sanitize_textarea_field',
 			'teqb_bonus_options' => 'sanitize_textarea_field',
 			'teqb_bonus_limit' => 'absint',
 			'teqb_additional_time_message' => 'sanitize_text_field',
 		);
+		
+		// Handle pricing type logic
+		$pricing_type = isset($_POST['teqb_pricing_type']) ? sanitize_text_field($_POST['teqb_pricing_type']) : 'fixed';
 		
 		foreach ($fields as $field => $sanitize) {
 			$value = isset($_POST[$field]) ? $_POST[$field] : '';
@@ -2335,6 +2718,20 @@ class teqb_Admin {
 				$value = call_user_func($sanitize, $value);
 			}
 			update_post_meta($post_id, '_' . $field, $value);
+		}
+		
+		// Handle pricing type logic after saving fields
+		if ($pricing_type === 'hourly') {
+			// For hourly pricing, calculate price from hourly_rate × minimum_hours
+			$hourly_rate = isset($_POST['teqb_hourly_rate']) ? floatval($_POST['teqb_hourly_rate']) : 0;
+			$minimum_hours = isset($_POST['teqb_minimum_hours']) ? absint($_POST['teqb_minimum_hours']) : 0;
+			if ($hourly_rate > 0 && $minimum_hours > 0) {
+				update_post_meta($post_id, '_teqb_price', $hourly_rate * $minimum_hours);
+			}
+		} else {
+			// For fixed pricing, clear hourly fields
+			update_post_meta($post_id, '_teqb_hourly_rate', '');
+			update_post_meta($post_id, '_teqb_minimum_hours', '');
 		}
 	}
 	

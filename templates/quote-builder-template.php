@@ -203,19 +203,25 @@ if (!defined('ABSPATH')) {
                 <p class="text-sm  font-semibold uppercase tracking-wide">
                     Service <span x-text="currentServiceDisplayIndex"></span> of <span x-text="selectedServices.length"></span>
                 </p>
-                <h2 class="text-2xl font-bold">
-                    Choose a package for <span x-text="currentServiceLabel"></span>
-                </h2>
-                <p class="text-gray-600 mt-1">
-                    Select the option that best matches your vision. You can always go back to adjust.
-                </p>
+                <h2 class="text-2xl font-bold" x-text="currentServiceData?.packageScreenTitle || ('Choose a package for ' + currentServiceLabel)"></h2>
+                <!-- Package screen description - supports multiple paragraphs -->
+                <template x-if="currentServiceData?.packageScreenDescription">
+                    <div class="text-gray-600 mt-1 space-y-3">
+                        <template x-for="(paragraph, idx) in currentServiceData.packageScreenDescription.split('\n').filter(p => p.trim())" :key="idx">
+                            <p x-text="paragraph"></p>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!currentServiceData?.packageScreenDescription">
+                    <p class="text-gray-600 mt-1">Select the option that best matches your vision. You can always go back to adjust.</p>
+                </template>
             </div>
             <div class="text-right text-sm text-gray-500" x-show="selectedServices.length > 1">
                 <p>Next service: <span x-text="nextServiceLabel"></span></p>
             </div>
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-4" :class="currentServicePackages.length === 1 ? 'lg:grid-cols-1' : 'lg:grid-cols-2'">
             <template x-for="packageOption in currentServicePackages" :key="packageOption.id">
                 <div class="package-card"
                      :class="{ 'selected': serviceSelections[currentServiceId].selectedPackage === packageOption.id }"
@@ -223,7 +229,19 @@ if (!defined('ABSPATH')) {
                     <div class="flex items-start justify-between">
                         <div>
                             <h3 class="package-name" x-text="packageOption.name"></h3>
-                            <p class="package-price" x-text="formatCurrency(packageOption.price)"></p>
+                            <!-- Show hourly breakdown only if not hidden by service override -->
+                            <template x-if="packageOption.hourlyRate && packageOption.minimumHours && !currentServiceData?.hideHourlyBreakdown">
+                                <p class="package-price">
+                                    <span x-text="formatCurrency(packageOption.hourlyRate)"></span> per hour, 
+                                    <span x-text="packageOption.minimumHours"></span>-hour minimum
+                                    <br>
+                                    <span class="text-sm text-gray-600">Base: <span x-text="formatCurrency(packageOption.price)"></span></span>
+                                </p>
+                            </template>
+                            <!-- Show simple price if no hourly rate OR if hourly breakdown is hidden -->
+                            <template x-if="!packageOption.hourlyRate || !packageOption.minimumHours || currentServiceData?.hideHourlyBreakdown">
+                                <p class="package-price" x-text="formatCurrency(packageOption.price)"></p>
+                            </template>
                         </div>
                     </div>
                     <ul class="package-features">

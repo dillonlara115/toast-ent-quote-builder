@@ -1241,6 +1241,12 @@
                 return id ? quoteData[id].label : '';
             },
 
+            // Returns the full service data object including override properties
+            get currentServiceData() {
+                const id = this.currentServiceId;
+                return id ? quoteData[id] : null;
+            },
+
             get currentServiceDisplayIndex() {
                 return this.currentServiceIndex + 1;
             },
@@ -1253,6 +1259,10 @@
             get currentServicePackages() {
                 const id = this.currentServiceId;
                 return id ? quoteData[id].packages : [];
+            },
+
+            get hasSinglePackage() {
+                return this.currentServicePackages.length === 1;
             },
 
             get currentServiceAddOns() {
@@ -2019,6 +2029,15 @@
                 this.currentServiceIndex = 0;
                 // Skip step 2 (packages) if skipPackages is true, go directly to add-ons (step 4)
                 this.currentStep = this.skipPackages ? 4 : 2;
+                
+                // Auto-select package if there's only one option
+                if (this.currentStep === 2 && this.hasSinglePackage && this.currentServiceId) {
+                    const singlePackage = this.currentServicePackages[0];
+                    if (singlePackage && !this.serviceSelections[this.currentServiceId].selectedPackage) {
+                        this.selectPackage(singlePackage);
+                    }
+                }
+                
                 this.stepError = '';
                 this.editingService = false;
                 this.scrollToBuilderTop();
@@ -2240,6 +2259,14 @@
             },
 
             goToAddOns() {
+                // Auto-select package if there's only one option before proceeding
+                if (this.hasSinglePackage && this.currentServiceId) {
+                    const singlePackage = this.currentServicePackages[0];
+                    if (singlePackage && !this.serviceSelections[this.currentServiceId].selectedPackage) {
+                        this.selectPackage(singlePackage);
+                    }
+                }
+                
                 // If skipPackages is true, don't require package selection
                 if (!this.skipPackages) {
                     const selection = this.serviceSelections[this.currentServiceId];
@@ -2259,6 +2286,15 @@
             backToPackages() {
                 this.resetUpgradeFlow();
                 this.currentStep = 2;
+                
+                // Auto-select package if there's only one option
+                if (this.hasSinglePackage && this.currentServiceId) {
+                    const singlePackage = this.currentServicePackages[0];
+                    if (singlePackage && !this.serviceSelections[this.currentServiceId].selectedPackage) {
+                        this.selectPackage(singlePackage);
+                    }
+                }
+                
                 this.stepError = '';
             },
 
@@ -2655,6 +2691,17 @@
                 if (!serviceId) {
                     return;
                 }
+                
+                // Auto-select package if there's only one option
+                const packages = quoteData[serviceId]?.packages || [];
+                if (packages.length === 1 && !this.skipPackages) {
+                    const singlePackage = packages[0];
+                    const selection = this.serviceSelections[serviceId];
+                    if (singlePackage && !selection.selectedPackage) {
+                        this.selectPackage(singlePackage);
+                    }
+                }
+                
                 // If skipPackages is true, don't require package selection
                 if (!this.skipPackages) {
                     const selection = this.serviceSelections[serviceId];
@@ -2685,6 +2732,15 @@
                     this.currentServiceIndex++;
                     // Skip step 2 (packages) if skipPackages is true, go directly to add-ons (step 4)
                     this.currentStep = this.skipPackages ? 4 : 2;
+                    
+                    // Auto-select package if there's only one option
+                    if (this.currentStep === 2 && this.hasSinglePackage && this.currentServiceId) {
+                        const singlePackage = this.currentServicePackages[0];
+                        if (singlePackage && !this.serviceSelections[this.currentServiceId].selectedPackage) {
+                            this.selectPackage(singlePackage);
+                        }
+                    }
+                    
                     this.stepError = '';
                     this.scrollToBuilderTop();
                     return;

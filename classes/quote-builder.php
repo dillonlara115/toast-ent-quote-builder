@@ -150,6 +150,10 @@ class teqb_Quote_Builder extends teqb_Base {
             'builder' => '',
         ], $atts, 'toast_quote_builder');
         
+        // Always log shortcode attributes for debugging
+        error_log('TEQB Render: Shortcode called with attributes: ' . wp_json_encode($atts));
+        error_log('TEQB Render: Raw shortcode attributes: ' . wp_json_encode($atts));
+        
         // Store location in global for use in enqueue_assets
         $GLOBALS['teqb_current_location'] = sanitize_text_field($atts['location']);
         
@@ -160,23 +164,32 @@ class teqb_Quote_Builder extends teqb_Base {
         $builder_id = null;
         if (!empty($atts['builder'])) {
             $normalized_slug = $this->normalize_builder_slug($atts['builder']);
+            error_log('TEQB Render: Builder attribute provided: "' . $atts['builder'] . '"');
+            error_log('TEQB Render: Normalized slug: "' . ($normalized_slug ? $normalized_slug : 'NULL') . '"');
+            
             if ($normalized_slug) {
                 $builder_id = $this->get_builder_id_by_slug($normalized_slug);
                 $atts['builder'] = $normalized_slug;
                 
                 // Debug: Log builder lookup
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('TEQB: Shortcode builder attribute: ' . $atts['builder']);
-                    error_log('TEQB: Normalized slug: ' . $normalized_slug);
-                    error_log('TEQB: Found builder ID: ' . ($builder_id ? $builder_id : 'NULL'));
+                error_log('TEQB Render: Looking up builder by slug: ' . $normalized_slug);
+                error_log('TEQB Render: Found builder ID: ' . ($builder_id ? $builder_id : 'NULL'));
+                
+                if (!$builder_id) {
+                    error_log('TEQB Render: WARNING - Builder slug not found: ' . $normalized_slug);
                 }
+            } else {
+                error_log('TEQB Render: WARNING - Normalized slug is empty for: ' . $atts['builder']);
             }
+        } else {
+            error_log('TEQB Render: No builder attribute provided, will use location: ' . $atts['location']);
         }
         
         // Store builder ID for asset localization
         // Output script directly in shortcode output to ensure it's available when JS runs
         $builder_data_script = '';
         if ($builder_id) {
+            error_log('TEQB Render: Loading quote data for builder ID: ' . $builder_id);
             $quote_data = $this->get_quote_data_for_frontend($builder_id);
             if ($quote_data) {
                 $quote_data['builder_id'] = $builder_id;
@@ -189,21 +202,19 @@ class teqb_Quote_Builder extends teqb_Base {
                 self::$current_builder_id = $builder_id;
                 
                 // Debug: Log data output
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('TEQB: Outputting builder data for ID: ' . $builder_id);
-                    error_log('TEQB: Services in data: ' . implode(', ', array_keys($quote_data['quoteData'] ?? [])));
-                }
+                error_log('TEQB Render: Successfully loaded builder data for ID: ' . $builder_id);
+                error_log('TEQB Render: Services in data: ' . implode(', ', array_keys($quote_data['quoteData'] ?? [])));
+                error_log('TEQB Render: Builder title: ' . ($quote_data['general']['title'] ?? 'N/A'));
             } else {
                 // Debug: No data found
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('TEQB: No quote data found for builder ID: ' . $builder_id);
-                }
+                error_log('TEQB Render: ERROR - No quote data found for builder ID: ' . $builder_id);
             }
         } else if (!empty($atts['builder'])) {
             // Debug: Builder slug provided but not found
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('TEQB: Builder slug provided but ID not found: ' . $atts['builder']);
-            }
+            error_log('TEQB Render: ERROR - Builder slug provided but ID not found: ' . $atts['builder']);
+            error_log('TEQB Render: This means the builder post with slug "' . $atts['builder'] . '" does not exist or is not published');
+        } else {
+            error_log('TEQB Render: No builder ID determined - will use location-based fallback: ' . $atts['location']);
         }
         
         // Allow developers to hook before the template is rendered
@@ -905,8 +916,9 @@ class teqb_Quote_Builder extends teqb_Base {
         );
         $args = wp_parse_args($args, $defaults);
 
-        // Check for builder-specific notification email override first
+        // Check for builder-specific notification email and CC override first
         $notification_email = '';
+        $cc_emails = '';
         if (!empty($args['builder_id'])) {
             $builder_config = $this->get_builder_config($args['builder_id']);
             if (!empty($builder_config) && is_array($builder_config)) {
@@ -915,6 +927,10 @@ class teqb_Quote_Builder extends teqb_Base {
                     if (!empty($sanitized)) {
                         $notification_email = $sanitized;
                     }
+                }
+                // Get CC emails from builder config
+                if (!empty($builder_config['notifications']['cc_email'])) {
+                    $cc_emails = $builder_config['notifications']['cc_email'];
                 }
             }
         }
@@ -938,10 +954,15 @@ class teqb_Quote_Builder extends teqb_Base {
         $email_subject = apply_filters('teqb_admin_email_subject', 'New Quote Request from ' . $submission_data['name'], $submission_data);
         $email_headers = apply_filters('teqb_email_headers', ['Content-Type: text/html; charset=UTF-8'], 'admin');
         
-        // Add CC to vanessa@brianlawrence.com for all admin notifications
-        $cc_email = 'vanessa@brianlawrence.com';
-        if (is_email($cc_email)) {
-            $email_headers[] = 'Cc: ' . sanitize_email($cc_email);
+        // Add CC emails from builder config (comma-separated list)
+        if (!empty($cc_emails)) {
+            $cc_list = array_map('trim', explode(',', $cc_emails));
+            foreach ($cc_list as $cc_email) {
+                $sanitized_cc = sanitize_email($cc_email);
+                if (is_email($sanitized_cc)) {
+                    $email_headers[] = 'Cc: ' . $sanitized_cc;
+                }
+            }
         }
 
         $admin_email = apply_filters('teqb_admin_email', $notification_email, $submission_data);
@@ -1082,9 +1103,13 @@ class teqb_Quote_Builder extends teqb_Base {
             'builder-' . $slug,
         ]));
 
+        error_log('TEQB Lookup: Searching for builder with slug: ' . $slug);
+        error_log('TEQB Lookup: Candidate slugs: ' . implode(', ', $candidate_slugs));
+
         foreach ($candidate_slugs as $candidate) {
             $post = get_page_by_path($candidate, OBJECT, 'teqb_builder');
             if ($post) {
+                error_log('TEQB Lookup: Found builder via get_page_by_path: ' . $candidate . ' -> ID: ' . $post->ID);
                 return $post->ID;
             }
         }
@@ -1098,9 +1123,13 @@ class teqb_Quote_Builder extends teqb_Base {
             ]);
 
             if (!empty($posts)) {
+                error_log('TEQB Lookup: Found builder via get_posts: ' . $candidate . ' -> ID: ' . $posts[0]->ID);
                 return $posts[0]->ID;
             }
         }
+        
+        error_log('TEQB Lookup: No builder found for slug: ' . $slug);
+        error_log('TEQB Lookup: Tried all candidate slugs: ' . implode(', ', $candidate_slugs));
 
         return null;
     }
@@ -1114,6 +1143,18 @@ class teqb_Quote_Builder extends teqb_Base {
         }
         
         $stored = get_post_meta($post_id, '_teqb_builder_config', true);
+        
+        // Handle base64-encoded configs (new format) and plain JSON (old format for backward compatibility)
+        if (!empty($stored) && strpos($stored, 'base64:') === 0) {
+            // New base64-encoded format
+            $base64_data = substr($stored, 7); // Remove 'base64:' prefix
+            $decoded_json = base64_decode($base64_data, true);
+            if ($decoded_json !== false) {
+                $stored = $decoded_json; // Use decoded JSON
+            } else {
+                $stored = ''; // Treat as empty if decode fails
+            }
+        }
         if (!empty($stored)) {
             $decoded = json_decode($stored, true);
             if (is_array($decoded)) {
@@ -1162,6 +1203,7 @@ class teqb_Quote_Builder extends teqb_Base {
                 'label' => $service['label'] ?? '',
                 'subtitle' => $service['subtitle'] ?? '',
                 'paragraphs' => $service['paragraphs'] ?? [],
+                'featuresTitle' => $service['features_title'] ?? 'What\'s Included',
                 'features' => $service['features'] ?? [],
                 'packages' => [],
                 'addons' => [],
@@ -1297,18 +1339,46 @@ class teqb_Quote_Builder extends teqb_Base {
             
             $service_id = $service_id_meta;
             
-            // Get features and paragraphs
+            // Get features and paragraphs from service CPT
             $features = $this->text_to_array(get_post_meta($service['post_id'], '_teqb_features', true));
+            $features_title = get_post_meta($service['post_id'], '_teqb_features_title', true) ?: 'What\'s Included';
             $paragraphs = $this->text_to_array(get_post_meta($service['post_id'], '_teqb_paragraphs', true));
             
             $quote_data[$service_id] = [
                 'label' => $service['label'],
                 'subtitle' => $service['subtitle'] ?? '',
                 'paragraphs' => $paragraphs,
+                'featuresTitle' => $features_title,
                 'features' => $features,
                 'packages' => [],
                 'addons' => [],
             ];
+            
+            // Apply service overrides from builder config (if any)
+            $service_overrides = $config['serviceOverrides'][$service['post_id']] ?? [];
+            if (!empty($service_overrides)) {
+                if (!empty($service_overrides['features_title'])) {
+                    $quote_data[$service_id]['featuresTitle'] = $service_overrides['features_title'];
+                }
+                if (!empty($service_overrides['subtitle'])) {
+                    $quote_data[$service_id]['subtitle'] = $service_overrides['subtitle'];
+                }
+                if (!empty($service_overrides['features']) && is_array($service_overrides['features'])) {
+                    $quote_data[$service_id]['features'] = $service_overrides['features'];
+                }
+                if (!empty($service_overrides['paragraphs']) && is_array($service_overrides['paragraphs'])) {
+                    $quote_data[$service_id]['paragraphs'] = $service_overrides['paragraphs'];
+                }
+                if (!empty($service_overrides['package_screen_title'])) {
+                    $quote_data[$service_id]['packageScreenTitle'] = $service_overrides['package_screen_title'];
+                }
+                if (!empty($service_overrides['package_screen_description'])) {
+                    $quote_data[$service_id]['packageScreenDescription'] = $service_overrides['package_screen_description'];
+                }
+                if (isset($service_overrides['hide_hourly_breakdown']) && $service_overrides['hide_hourly_breakdown']) {
+                    $quote_data[$service_id]['hideHourlyBreakdown'] = true;
+                }
+            }
             
             // Load packages for this service (already loaded in service object)
             $service_packages = $service['packages'] ?? [];
@@ -1349,6 +1419,10 @@ class teqb_Quote_Builder extends teqb_Base {
                 $includes = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_includes', true));
                 $bonus_options = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_bonus_options', true));
                 
+                // Check for hourly pricing
+                $hourly_rate = get_post_meta($pkg['post_id'], '_teqb_hourly_rate', true);
+                $minimum_hours = get_post_meta($pkg['post_id'], '_teqb_minimum_hours', true);
+                
                 $package_data = [
                     'id' => $package_id_meta,
                     'name' => $pkg['name'],
@@ -1356,6 +1430,16 @@ class teqb_Quote_Builder extends teqb_Base {
                     'includes' => $includes,
                     'menu_order' => isset($pkg['menu_order']) ? intval($pkg['menu_order']) : 0, // Preserve menu_order for sorting
                 ];
+                
+                // Add hourly pricing fields if they exist
+                if (!empty($hourly_rate) && !empty($minimum_hours)) {
+                    $package_data['hourlyRate'] = floatval($hourly_rate);
+                    $package_data['minimumHours'] = intval($minimum_hours);
+                    // Recalculate price if using hourly pricing (in case override was set)
+                    if (!isset($package_overrides[$pkg['post_id']])) {
+                        $package_data['price'] = floatval($hourly_rate) * intval($minimum_hours);
+                    }
+                }
                 
                 if (!empty($bonus_options)) {
                     $package_data['bonusOptions'] = $bonus_options;

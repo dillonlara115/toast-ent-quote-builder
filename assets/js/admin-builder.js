@@ -66,6 +66,7 @@
 		selectedServices: [],
 		selectedPackages: [],
 		selectedAddons: [],
+		serviceOverrides: {}, // Per-service overrides keyed by service post ID
 		location: '',
 		skipPackages: false, // If true, skip package selection and go directly to add-ons
 		bundles: {
@@ -98,7 +99,8 @@
 			confirmation_copy: ''
 		},
 		notifications: {
-			email: ''
+			email: '',
+			cc_email: '' // Comma-separated CC email addresses
 		}
 	}, defaults);
 
@@ -124,6 +126,9 @@
 					: null
 			}))
 			: [],
+		serviceOverrides: (initialConfig.serviceOverrides && typeof initialConfig.serviceOverrides === 'object')
+			? initialConfig.serviceOverrides
+			: {},
 		location: initialConfig.location || '',
 	};
 	
@@ -901,6 +906,49 @@
 			return selectedAddons.some(a => a.post_id === addonPostId);
 		};
 		
+		// Service override helpers
+		const serviceOverrides = config.serviceOverrides || {};
+		
+		const getServiceOverride = (servicePostId) => {
+			return serviceOverrides[servicePostId] || {};
+		};
+		
+		const updateServiceOverride = (servicePostId, field, value) => {
+			const currentOverride = serviceOverrides[servicePostId] || {};
+			const newOverride = { ...currentOverride, [field]: value };
+			
+			// Remove empty fields to keep config clean
+			Object.keys(newOverride).forEach(key => {
+				const val = newOverride[key];
+				if (val === '' || val === null || val === undefined || 
+					(Array.isArray(val) && val.length === 0) ||
+					(key === 'hide_hourly_breakdown' && val === false)) {
+					delete newOverride[key];
+				}
+			});
+			
+			const newOverrides = { ...serviceOverrides };
+			if (Object.keys(newOverride).length > 0) {
+				newOverrides[servicePostId] = newOverride;
+			} else {
+				delete newOverrides[servicePostId];
+			}
+			
+			onChange({ ...config, serviceOverrides: newOverrides });
+		};
+		
+		// Helper to convert newline-separated text to array
+		const textToArray = (text) => {
+			if (!text || typeof text !== 'string') return [];
+			return text.split('\n').map(s => s.trim()).filter(Boolean);
+		};
+		
+		// Helper to convert array to newline-separated text
+		const arrayToText = (arr) => {
+			if (!arr || !Array.isArray(arr)) return '';
+			return arr.join('\n');
+		};
+		
 		return el(Section, {
 			title: __('Services, Packages & Add-ons', 'teqb'),
 			description: __('Select services, packages, and add-ons from your catalog. You can override pricing per builder.', 'teqb')
@@ -1048,7 +1096,87 @@
 										}, `Using override: $${displayPrice.toFixed(2)}`) : null
 									);
 								})
-							) : null
+							) : null,
+							
+							// Service Override Panel
+							el('details', { 
+								className: 'teqb-service-override-panel',
+								style: { 
+									marginTop: '20px',
+									border: '1px solid #e5e7eb',
+									borderRadius: '4px',
+									padding: '12px',
+									backgroundColor: '#fafafa'
+								}
+							},
+								el('summary', { 
+									style: { 
+										cursor: 'pointer', 
+										fontWeight: '600',
+										color: '#374151',
+										marginBottom: '8px'
+									}
+								}, __('Override Service Display (Optional)', 'teqb')),
+								el('p', {
+									style: { fontSize: '13px', color: '#666', marginBottom: '16px' }
+								}, __('Override the default service content for this builder only. Leave fields empty to use defaults from the Service settings.', 'teqb')),
+								
+								el('div', { style: { display: 'grid', gap: '16px' } },
+									el(TextControl, {
+										label: __('Features Title', 'teqb'),
+										help: __('Override the "What\'s Included" heading', 'teqb'),
+										placeholder: service.features_title || __('What\'s Included', 'teqb'),
+										value: getServiceOverride(service.post_id).features_title || '',
+										onChange: (value) => updateServiceOverride(service.post_id, 'features_title', value)
+									}),
+									el(TextareaControl, {
+										label: __('Features List', 'teqb'),
+										help: __('One feature per line. Leave empty to use service defaults.', 'teqb'),
+										placeholder: arrayToText(service.features || []),
+										value: arrayToText(getServiceOverride(service.post_id).features || []),
+										rows: 6,
+										onChange: (value) => updateServiceOverride(service.post_id, 'features', textToArray(value))
+									}),
+									el(TextControl, {
+										label: __('Subtitle', 'teqb'),
+										help: __('Override the service subtitle', 'teqb'),
+										placeholder: service.subtitle || '',
+										value: getServiceOverride(service.post_id).subtitle || '',
+										onChange: (value) => updateServiceOverride(service.post_id, 'subtitle', value)
+									}),
+									el(TextareaControl, {
+										label: __('Description Paragraphs', 'teqb'),
+										help: __('One paragraph per line. Leave empty to use service defaults.', 'teqb'),
+										placeholder: arrayToText(service.paragraphs || []),
+										value: arrayToText(getServiceOverride(service.post_id).paragraphs || []),
+										rows: 4,
+										onChange: (value) => updateServiceOverride(service.post_id, 'paragraphs', textToArray(value))
+									}),
+									el('hr', { style: { margin: '8px 0', border: 'none', borderTop: '1px solid #e5e7eb' } }),
+									el('h5', { style: { margin: '0 0 8px 0', fontWeight: '600' } }, __('Package Selection Screen', 'teqb')),
+									el(TextControl, {
+										label: __('Package Screen Title', 'teqb'),
+										help: __('Custom title for the package selection screen (e.g., "Your DJ/MC package includes the first 4 hours")', 'teqb'),
+										placeholder: __('Choose a package for [Service Name]', 'teqb'),
+										value: getServiceOverride(service.post_id).package_screen_title || '',
+										onChange: (value) => updateServiceOverride(service.post_id, 'package_screen_title', value)
+									}),
+									el(TextareaControl, {
+										label: __('Package Screen Description', 'teqb'),
+										help: __('Custom intro text for the package selection screen', 'teqb'),
+										placeholder: __('Select the option that best matches your vision. You can always go back to adjust.', 'teqb'),
+										value: getServiceOverride(service.post_id).package_screen_description || '',
+										rows: 4,
+										onChange: (value) => updateServiceOverride(service.post_id, 'package_screen_description', value)
+									}),
+									el(CheckboxControl, {
+										label: __('Hide Hourly Pricing Breakdown', 'teqb'),
+										help: __('Show only the total package price instead of hourly rate and minimum hours', 'teqb'),
+										checked: !!getServiceOverride(service.post_id).hide_hourly_breakdown,
+										onChange: (value) => updateServiceOverride(service.post_id, 'hide_hourly_breakdown', value)
+									})
+								)
+							)
 						) : null
 					);
 				})
@@ -1154,70 +1282,15 @@
 			placeholder: __('e.g., quotes@toastent.com', 'teqb'),
 			value: notifications.email || '',
 			onChange: (value) => onUpdateNotifications('email', value)
+		}),
+		el(TextControl, {
+			label: __('CC email addresses', 'teqb'),
+			help: __('Comma-separated list of email addresses to CC on notifications.', 'teqb'),
+			placeholder: __('e.g., manager@toastent.com, owner@toastent.com', 'teqb'),
+			value: notifications.cc_email || '',
+			onChange: (value) => onUpdateNotifications('cc_email', value)
 		})
 	);
-
-	const App = () => {
-		const [config, setConfig] = useState(initialState);
-		const [dirty, setDirty] = useState(false);
-		const firstRender = useRef(true);
-
-		useEffect(() => {
-			const input = document.getElementById('teqb_builder_config');
-			if (input) {
-				input.value = JSON.stringify(config);
-			}
-			if (firstRender.current) {
-				firstRender.current = false;
-			} else {
-				setDirty(true);
-			}
-		}, [config]);
-
-		const bundles = config.bundles || {};
-		const form = config.form || {};
-		const notifications = config.notifications || {};
-
-		return el('div', { className: 'teqb-builder-admin' },
-			el(Notice, {
-				status: 'info',
-				isDismissible: false
-			}, __('Select services, packages, and add-ons from your catalog. Configure bundle discounts and form settings below.', 'teqb')),
-			ServicesSection({
-				config,
-				onChange: (next) => setConfig(next),
-				cptData: cptData
-			}),
-			BundlesSection({
-				bundles,
-				onChange: (next) => setConfig({ ...config, bundles: next })
-			}),
-			FormSection({
-				form,
-				notifications,
-				onUpdateForm: (field, value) => {
-					const next = { ...form, [field]: value };
-					setConfig({ ...config, form: next });
-				},
-				onUpdateNotifications: (field, value) => {
-					const next = { ...notifications, [field]: value };
-					setConfig({ ...config, notifications: next });
-				}
-			}),
-			el('div', { className: 'teqb-admin-footer' },
-				el('span', null,
-					dirty
-						? __('Changes will be saved when you update the builder post.', 'teqb')
-						: __('No changes yet.', 'teqb')
-				),
-				el('span', null,
-					__('Shortcode example:', 'teqb'),
-					' ',
-					el('code', null, '[quote-builder=builder-' + ((data.postSlug && data.postSlug.length) ? data.postSlug : 'slug') + ']')
-				)
-			)
-		);
-	};
 
 	document.addEventListener('DOMContentLoaded', () => {
 		const rootElement = document.getElementById('teqb-builder-app');
@@ -1225,10 +1298,145 @@
 			return;
 		}
 
+		// Store the latest config in a way that's accessible to event handlers
+		const configStore = { value: initialState };
+
+		// Create the main App component
+		const App = () => {
+			const [config, setConfig] = useState(initialState);
+			const [dirty, setDirty] = useState(false);
+			const firstRender = useRef(true);
+
+			useEffect(() => {
+				// Update configStore so form submit handler can access it
+				configStore.value = config;
+				
+				const input = document.getElementById('teqb_builder_config');
+				if (input) {
+					const jsonValue = JSON.stringify(config);
+					input.value = jsonValue;
+					console.log('TEQB: Config updated in useEffect:', jsonValue.substring(0, 100) + '...');
+				}
+				if (firstRender.current) {
+					firstRender.current = false;
+				} else {
+					setDirty(true);
+				}
+			}, [config]);
+
+			const bundles = config.bundles || {};
+			const form = config.form || {};
+			const notifications = config.notifications || {};
+
+			return el('div', { className: 'teqb-builder-admin' },
+				el(Notice, {
+					status: 'info',
+					isDismissible: false
+				}, __('Select services, packages, and add-ons from your catalog. Configure bundle discounts and form settings below.', 'teqb')),
+				ServicesSection({
+					config,
+					onChange: (next) => setConfig(next),
+					cptData: cptData
+				}),
+				BundlesSection({
+					bundles,
+					onChange: (next) => setConfig({ ...config, bundles: next })
+				}),
+				FormSection({
+					form,
+					notifications,
+					onUpdateForm: (field, value) => {
+						const next = { ...form, [field]: value };
+						setConfig({ ...config, form: next });
+					},
+					onUpdateNotifications: (field, value) => {
+						const next = { ...notifications, [field]: value };
+						setConfig({ ...config, notifications: next });
+					}
+				}),
+				el('div', { className: 'teqb-admin-footer' },
+					el('span', null,
+						dirty
+							? __('Changes will be saved when you update the builder post.', 'teqb')
+							: __('No changes yet.', 'teqb')
+					),
+					el('span', null,
+						__('Shortcode example:', 'teqb'),
+						' ',
+						el('code', null, '[quote-builder=builder-' + ((data.postSlug && data.postSlug.length) ? data.postSlug : 'slug') + ']')
+					)
+				)
+			);
+		};
+
 		if (typeof wp.element.createRoot === 'function') {
 			wp.element.createRoot(rootElement).render(el(App));
 		} else if (typeof wp.element.render === 'function') {
 			wp.element.render(el(App), rootElement);
 		}
+
+		// Add multiple handlers to catch WordPress save in different ways
+		const updateHiddenInput = () => {
+			const input = document.getElementById('teqb_builder_config');
+			if (input && configStore.value) {
+				const jsonValue = JSON.stringify(configStore.value);
+				input.value = jsonValue;
+				console.log('TEQB: Updated hidden input with config:', jsonValue.substring(0, 200) + '...');
+				console.log('TEQB: Full config being saved:', jsonValue);
+				console.log('TEQB: Input value length:', input.value.length);
+				return true;
+			}
+			console.error('TEQB: Could not update hidden input - input:', !!input, 'config:', !!configStore.value);
+			return false;
+		};
+
+		// Hook into WordPress form submission
+		const form = document.getElementById('post');
+		if (form) {
+			// Standard form submit
+			form.addEventListener('submit', function(e) {
+				console.log('TEQB: Form submit event triggered');
+				updateHiddenInput();
+			}, true); // Use capture phase to run early
+
+			// Also hook into WordPress's specific save mechanisms
+			const publishButton = document.getElementById('publish');
+			const updateButton = document.querySelector('input[name="save"]');
+			
+			if (publishButton) {
+				publishButton.addEventListener('click', function(e) {
+					console.log('TEQB: Publish button clicked');
+					updateHiddenInput();
+				}, true);
+			}
+			
+			if (updateButton) {
+				updateButton.addEventListener('click', function(e) {
+					console.log('TEQB: Update button clicked');
+					updateHiddenInput();
+				}, true);
+			}
+
+			// Hook into WordPress heartbeat (used for autosave)
+			if (typeof wp !== 'undefined' && wp.heartbeat && typeof wp.heartbeat.on === 'function') {
+				wp.heartbeat.on('heartbeat-send', function(data) {
+					console.log('TEQB: Heartbeat send');
+					updateHiddenInput();
+				});
+			}
+		}
+
+		// Also update on any click on save/publish buttons (as fallback)
+		document.addEventListener('click', function(e) {
+			const target = e.target;
+			if (target && (
+				target.id === 'publish' ||
+				target.name === 'save' ||
+				(target.type === 'submit' && target.closest('#post'))
+			)) {
+				console.log('TEQB: Save button clicked via click handler');
+				setTimeout(updateHiddenInput, 0); // Use setTimeout to ensure it runs before form submit
+			}
+		}, true);
 	});
 })(window.wp);
