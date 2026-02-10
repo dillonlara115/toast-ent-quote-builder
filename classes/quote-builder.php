@@ -1417,6 +1417,11 @@ class teqb_Quote_Builder extends teqb_Base {
                 }
                 
                 $includes = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_includes', true));
+                // Apply service override features to package includes when override exists
+                // This ensures the package selection screen shows the same customized content as the service page
+                if (!empty($service_overrides['features']) && is_array($service_overrides['features'])) {
+                    $includes = $service_overrides['features'];
+                }
                 $bonus_options = $this->text_to_array(get_post_meta($pkg['post_id'], '_teqb_bonus_options', true));
                 
                 // Check for hourly pricing
